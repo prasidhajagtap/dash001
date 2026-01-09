@@ -12,24 +12,24 @@ resize();
 const playerImg = new Image();
 playerImg.src = "character.png";
 
-let player = {
-  x: W / 2,
-  y: H * 0.6,
-  w: 80,
-  h: 80
-};
+let player = { x: W / 2, y: H * 0.6, w: 80, h: 80, vx: 0 };
 
 let enemies = [];
 let powerups = [];
+let particles = [];
+
 let score = 0;
 let bestScore = Number(localStorage.getItem("bestScore")) || 0;
 let level = 1;
 let nextDifficultyAt = 100;
-let difficultyIncrement = [100, 200, 150, 150];
+let diffSteps = [100, 200, 150, 150];
 let diffIndex = 0;
 let speed = 2;
-let running = true;
+
+let running = false;
+let focusMode = false;
 let shieldActive = false;
+let achievedBadges = new Set();
 
 const triviaList = [
   "Poornata supports the complete employee lifecycle.",
@@ -46,26 +46,39 @@ const sounds = {
 };
 
 sounds.theme.loop = true;
-sounds.theme.volume = 0.3;
+sounds.theme.volume = 0.25;
 
 function vibrate(ms = 50) {
   if (navigator.vibrate) navigator.vibrate(ms);
 }
 
+let targetX = player.x;
+
+canvas.addEventListener("touchstart", e => {
+  running = true;
+  sounds.theme.play().catch(()=>{});
+  targetX = e.touches[0].clientX - player.w / 2;
+});
+
 canvas.addEventListener("touchmove", e => {
-  const t = e.touches[0];
-  player.x = t.clientX - player.w / 2;
+  targetX = e.touches[0].clientX - player.w / 2;
 });
 
 canvas.addEventListener("mousemove", e => {
-  if (e.buttons === 1) player.x = e.clientX - player.w / 2;
+  if (e.buttons === 1) targetX = e.clientX - player.w / 2;
+});
+
+canvas.addEventListener("click", e => {
+  if (e.clientX > W - 80 && e.clientY < 80) {
+    focusMode = !focusMode;
+  }
 });
 
 function spawnEnemy() {
   enemies.push({
     x: Math.random() * (W - 40),
     y: -40,
-    r: 20 + Math.random() * 10
+    r: 22
   });
 }
 
@@ -74,52 +87,69 @@ function spawnPowerup() {
     x: Math.random() * (W - 30),
     y: -30,
     r: 15,
-    type: Math.random() > 0.5 ? "shield" : "warp"
+    type: "shield"
   });
 }
 
 function drawBackground() {
   ctx.fillStyle = "#050b1f";
   ctx.fillRect(0, 0, W, H);
-  ctx.strokeStyle = "rgba(255,255,255,0.08)";
-  for (let i = 0; i < 30; i++) {
-    ctx.beginPath();
-    ctx.moveTo(Math.random() * W, Math.random() * H);
-    ctx.lineTo(Math.random() * W, Math.random() * H + 100);
-    ctx.stroke();
+  if (!focusMode) {
+    ctx.strokeStyle = "rgba(255,255,255,0.06)";
+    for (let i = 0; i < 25; i++) {
+      ctx.beginPath();
+      ctx.moveTo(Math.random() * W, Math.random() * H);
+      ctx.lineTo(Math.random() * W, Math.random() * H + 80);
+      ctx.stroke();
+    }
   }
+}
+
+function autoCenter() {
+  const center = W / 2 - player.w / 2;
+  player.vx += (center - player.x) * 0.0005;
+  player.vx *= 0.92;
+  player.x += player.vx;
 }
 
 function update() {
   if (!running) return;
 
   score += 0.15;
+
   if (score > bestScore) {
     bestScore = Math.floor(score);
     localStorage.setItem("bestScore", bestScore);
-    vibrate(100);
+    vibrate(80);
   }
+
+  [500, 1000, 2000].forEach(v => {
+    if (score > v && !achievedBadges.has(v)) {
+      achievedBadges.add(v);
+      vibrate(120);
+    }
+  });
 
   if (score > nextDifficultyAt) {
     level++;
-    speed += 0.5;
-    diffIndex = Math.min(diffIndex + 1, difficultyIncrement.length - 1);
-    nextDifficultyAt += difficultyIncrement[diffIndex];
+    speed += 0.4;
+    diffIndex = Math.min(diffIndex + 1, diffSteps.length - 1);
+    nextDifficultyAt += diffSteps[diffIndex];
   }
 
-  if (Math.random() < 0.02) spawnEnemy();
-  if (Math.random() < 0.005) spawnPowerup();
+  if (Math.random() < 0.018) spawnEnemy();
+  if (Math.random() < 0.004) spawnPowerup();
 
   enemies.forEach(e => e.y += speed);
   powerups.forEach(p => p.y += speed);
 
-  enemies = enemies.filter(e => e.y < H + 50);
-  powerups = powerups.filter(p => p.y < H + 50);
+  if (Math.abs(targetX - player.x) < 2) autoCenter();
+  else player.x += (targetX - player.x) * 0.2;
 }
 
-function collide(a, b) {
-  return Math.abs(a.x - b.x) < a.w / 2 + b.r &&
-         Math.abs(a.y - b.y) < a.h / 2 + b.r;
+function collide(ax, ay, aw, ah, bx, by, br) {
+  return Math.abs(ax - bx) < aw / 2 + br &&
+         Math.abs(ay - by) < ah / 2 + br;
 }
 
 function draw() {
@@ -133,33 +163,31 @@ function draw() {
     ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2);
     ctx.fill();
 
-    if (collide({x: player.x + 40, y: player.y + 40, w: 80, h: 80}, e)) {
-      if (!shieldActive) {
-        sounds.die.play();
-        running = false;
-        alert(`Game Over.\n\nTrivia: ${triviaList[level % triviaList.length]}`);
-      }
+    if (collide(player.x + 40, player.y + 40, 80, 80, e.x, e.y, e.r)) {
+      sounds.die.play();
+      running = false;
     }
   });
 
   powerups.forEach(p => {
-    ctx.fillStyle = p.type === "shield" ? "cyan" : "gold";
+    ctx.fillStyle = "cyan";
     ctx.beginPath();
     ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
     ctx.fill();
 
-    if (collide({x: player.x + 40, y: player.y + 40, w: 80, h: 80}, p)) {
+    if (collide(player.x + 40, player.y + 40, 80, 80, p.x, p.y, p.r)) {
       sounds.coin.play();
-      vibrate(80);
+      vibrate(60);
       shieldActive = true;
       setTimeout(() => shieldActive = false, 8000);
-      powerups = powerups.filter(x => x !== p);
     }
   });
 
   ctx.fillStyle = "#fff";
   ctx.fillText(`Score: ${Math.floor(score)}`, 20, 30);
   ctx.fillText(`Best: ${bestScore}`, 20, 50);
+
+  if (focusMode) ctx.fillText("Focus", W - 60, 40);
 }
 
 function loop() {
@@ -168,7 +196,6 @@ function loop() {
   requestAnimationFrame(loop);
 }
 
-sounds.theme.play();
 loop();
 
 window.shareScore = function () {
