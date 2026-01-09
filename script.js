@@ -125,7 +125,11 @@ continueBtn.onclick = ()=>{
 };
 
 /* Restart */
-restartBtn.onclick = ()=>{ gameOver.classList.add("hidden"); initGame(); };
+restartBtn.onclick = ()=>{
+ paused = false;
+ gameOver.classList.add("hidden");
+ initGame();
+};
 menuBtn.onclick = ()=> location.reload();
 
 /* Share */
@@ -160,6 +164,7 @@ function initGame(){
  hudName.textContent = nameInput.value;
  levelEl.textContent = level;
 }
+
 function spawnEnemy(){ enemies.push({x:Math.random()*(W-40),y:-40,r:20,rot:Math.random()*Math.PI}); }
 function spawnPowerup(){ powerups.push({x:Math.random()*(W-30),y:-30,r:16,type:Math.random()>0.5?"shield":"warp"}); }
 function hit(ax,ay,aw,ah,bx,by,br){ return Math.abs(ax-bx)<aw/2+br-10 && Math.abs(ay-by)<ah/2+br-10; }
@@ -245,13 +250,15 @@ function draw(){
 }
 
 function endGame(){
- running=false;
+ running = false;
+ paused = false; // <-- important fix
  triviaText.textContent = triviaList[Math.floor(Math.random()*triviaList.length)];
  gameOver.classList.remove("hidden");
- finalScoreEl.textContent=Math.floor(score);
- bestScoreEl.textContent=bestScore;
+ finalScoreEl.textContent = Math.floor(score);
+ bestScoreEl.textContent = bestScore;
  if(soundOn) sounds.die.play();
 }
+
 
 /* Loop */
 (function loop(){ update(); draw(); requestAnimationFrame(loop); })();
