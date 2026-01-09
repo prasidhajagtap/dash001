@@ -27,23 +27,21 @@ let speed = 2;
 
 let running = false;
 let focusMode = false;
-let shieldActive = false;
 let achievedBadges = new Set();
 
 let targetX = player.x;
 
-const triviaList = [
-  "Poornata supports the complete employee lifecycle.",
-  "Seamex enables seamless HR operations across the Group.",
-  "Digital onboarding reduces joining friction by 40%.",
-  "Secure data handling is core to Poornata.",
-  "Employee self-service drives productivity."
-];
+/* LOGIN ELEMENTS */
+const nameInput = document.getElementById("empName");
+const idInput = document.getElementById("poornataId");
+const startBtn = document.getElementById("startBtn");
+const loginModal = document.getElementById("login-modal");
 
+/* SOUNDS */
 const sounds = {
-  theme: new Audio("https://cdn.pixabay.com/download/audio/2022/03/15/audio_6b9a66a35c.mp3"),
-  coin: new Audio("https://cdn.pixabay.com/download/audio/2022/03/15/audio_4c2d87c90b.mp3"),
-  die: new Audio("https://cdn.pixabay.com/download/audio/2022/03/15/audio_3a5a902fcb.mp3")
+  theme: new Audio("https://cdn.jsdelivr.net/gh/joshua19881228/free-music-files@master/super-mario-bros-theme.mp3"),
+  coin: new Audio("https://cdn.jsdelivr.net/gh/joshua19881228/free-music-files@master/coin.mp3"),
+  die: new Audio("https://cdn.jsdelivr.net/gh/joshua19881228/free-music-files@master/mario-death.mp3")
 };
 
 sounds.theme.loop = true;
@@ -53,20 +51,27 @@ function vibrate(ms = 50) {
   if (navigator.vibrate) navigator.vibrate(ms);
 }
 
-/* LOGIN WATCHER */
-function checkLogin() {
-  const modal = document.getElementById("login-modal");
-  const nameInput = document.getElementById("empName");
-  const idInput = document.getElementById("poornataId");
+/* VALIDATION */
+function validateInputs() {
+  const nameValid = /^[A-Za-z ]{3,}$/.test(nameInput.value.trim());
+  const idValid = /^[0-9]{4,}$/.test(idInput.value.trim());
 
-  if (!modal) return false;
-  if (modal.style.display !== "none") return false;
-  if (!nameInput || !idInput) return false;
-  if (nameInput.value.trim().length < 3) return false;
-  if (idInput.value.trim().length < 4) return false;
+  nameInput.setCustomValidity(nameValid ? "" : "Name must contain only letters and at least 3 characters");
+  idInput.setCustomValidity(idValid ? "" : "Poornata ID must be numeric and at least 4 digits");
 
-  return true;
+  startBtn.disabled = !(nameValid && idValid);
 }
+
+/* Bind validation */
+nameInput.addEventListener("input", validateInputs);
+idInput.addEventListener("input", validateInputs);
+
+/* START */
+startBtn.addEventListener("click", () => {
+  loginModal.style.display = "none";
+  running = true;
+  sounds.theme.play().catch(()=>{});
+});
 
 /* INPUT */
 canvas.addEventListener("touchmove", e => {
@@ -155,7 +160,6 @@ function collide(ax, ay, aw, ah, bx, by, br) {
 
 function draw() {
   drawBackground();
-
   ctx.drawImage(playerImg, player.x, player.y, player.w, player.h);
 
   enemies.forEach(e => {
@@ -183,16 +187,9 @@ function draw() {
   ctx.fillStyle = "#fff";
   ctx.fillText(`Score: ${Math.floor(score)}`, 20, 30);
   ctx.fillText(`Best: ${bestScore}`, 20, 50);
-
-  if (!checkLogin()) ctx.fillText("Please login to start", W / 2 - 80, H / 2);
 }
 
 function loop() {
-  if (!running && checkLogin()) {
-    running = true;
-    sounds.theme.play().catch(()=>{});
-  }
-
   update();
   draw();
   requestAnimationFrame(loop);
