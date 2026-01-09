@@ -23,14 +23,12 @@ const idInput = document.getElementById("player-id");
 const nameErr = document.getElementById("name-val");
 const idErr = document.getElementById("id-val");
 const hud = document.getElementById("game-hud");
+const hudName = document.getElementById("hud-name");
 const scoreEl = document.getElementById("score");
 const levelEl = document.getElementById("level");
 const pauseBtn = document.getElementById("pause-btn");
 const pauseOverlay = document.getElementById("pause-overlay");
 const resumeBtn = document.getElementById("resume-btn");
-const levelModal = document.getElementById("level-modal");
-const triviaText = document.getElementById("trivia-text");
-const continueBtn = document.getElementById("continue-btn");
 const gameOver = document.getElementById("game-over-screen");
 const finalScoreEl = document.getElementById("final-score");
 const bestScoreEl = document.getElementById("best-score");
@@ -46,33 +44,22 @@ let score = 0;
 let bestScore = Number(localStorage.getItem("bestScore")) || 0;
 let level = 1;
 let nextDifficultyAt = 100;
-let diffSteps = [100, 200, 150, 150];
-let diffIndex = 0;
-let speed = 2;
-let player = { x: W / 2, y: H * 0.6, w: 80, h: 80, vx: 0 };
+let speed = 2.5;
+let player = { x: W / 2, y: H * 0.6, w: 80, h: 80 };
 let enemies = [];
 let powerups = [];
-let targetX = player.x;
+let target = { x: player.x, y: player.y };
 let shieldActive = false;
-let focusMode = false;
-let achievedBadges = new Set();
-
-const triviaList = [
-  "Poornata supports the complete employee lifecycle.",
-  "Seamex enables seamless HR operations across the Group.",
-  "Digital onboarding reduces joining friction by 40%.",
-  "Secure data handling is core to Poornata.",
-  "Employee self-service drives productivity."
-];
 
 /* AUDIO */
 const sounds = {
   theme: new Audio("https://cdn.jsdelivr.net/gh/joshua19881228/free-music-files@master/super-mario-bros-theme.mp3"),
   coin: new Audio("https://cdn.jsdelivr.net/gh/joshua19881228/free-music-files@master/coin.mp3"),
-  die: new Audio("https://cdn.jsdelivr.net/gh/joshua19881228/free-music-files@master/mario-death.mp3")
+  die: new Audio("https://cdn.jsdelivr.net/gh/joshua19881228/free-music-files@master/mario-death.mp3"),
+  level: new Audio("https://cdn.jsdelivr.net/gh/joshua19881228/free-music-files@master/power-up.mp3")
 };
+Object.values(sounds).forEach(s => s.volume = 0.5);
 sounds.theme.loop = true;
-sounds.theme.volume = 0.25;
 let soundOn = true;
 
 /* VALIDATION */
@@ -87,7 +74,7 @@ function validateInputs() {
 nameInput.addEventListener("input", validateInputs);
 idInput.addEventListener("input", validateInputs);
 
-/* LOGIN FLOW */
+/* LOGIN */
 function startGame() {
   localStorage.setItem("seamex_user", JSON.stringify({
     name: nameInput.value.trim(),
@@ -99,15 +86,16 @@ function startGame() {
 
 function initGame() {
   startScreen.classList.add("hidden");
+  gameOver.classList.add("hidden");
   hud.classList.remove("hidden");
-  running = true;
   paused = false;
+  running = true;
   score = 0;
   level = 1;
-  speed = 2;
+  speed = 2.5;
   enemies = [];
   powerups = [];
-  achievedBadges.clear();
+  hudName.textContent = nameInput.value.trim();
   if (soundOn) sounds.theme.play().catch(()=>{});
 }
 
@@ -135,25 +123,28 @@ if (savedUser) {
 }
 
 /* CONTROLS */
+canvas.addEventListener("touchstart", e => {
+  if (!running) return;
+  const t = e.touches[0];
+  target.x = t.clientX - player.w / 2;
+  target.y = t.clientY - player.h / 2;
+});
+
 canvas.addEventListener("touchmove", e => {
-  if (!running || paused) return;
-  targetX = e.touches[0].clientX - player.w / 2;
+  if (!running) return;
+  const t = e.touches[0];
+  target.x = t.clientX - player.w / 2;
+  target.y = t.clientY - player.h / 2;
 });
 
 canvas.addEventListener("mousemove", e => {
-  if (!running || paused) return;
-  if (e.buttons === 1) targetX = e.clientX - player.w / 2;
+  if (!running || !e.buttons) return;
+  target.x = e.clientX - player.w / 2;
+  target.y = e.clientY - player.h / 2;
 });
 
-pauseBtn.addEventListener("click", () => {
-  paused = true;
-  pauseOverlay.classList.remove("hidden");
-});
-
-resumeBtn.addEventListener("click", () => {
-  paused = false;
-  pauseOverlay.classList.add("hidden");
-});
+pauseBtn.addEventListener("click", () => paused = true);
+resumeBtn.addEventListener("click", () => paused = false);
 
 /* GAME */
 function spawnEnemy() {
@@ -165,21 +156,17 @@ function spawnPowerup() {
 }
 
 function drawBackground() {
-  ctx.fillStyle = "#050b1f";
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, "#6ec6ff");
+  grad.addColorStop(1, "#b3e5fc");
+  ctx.fillStyle = grad;
   ctx.fillRect(0, 0, W, H);
-}
-
-function autoCenter() {
-  const c = W / 2 - player.w / 2;
-  player.vx += (c - player.x) * 0.0005;
-  player.vx *= 0.9;
-  player.x += player.vx;
 }
 
 function update() {
   if (!running || paused) return;
 
-  score += 0.15;
+  score += 0.2;
   scoreEl.textContent = Math.floor(score);
 
   if (score > bestScore) {
@@ -190,30 +177,22 @@ function update() {
   if (score > nextDifficultyAt) {
     level++;
     levelEl.textContent = level;
-    triviaText.textContent = triviaList[level % triviaList.length];
-    levelModal.classList.remove("hidden");
-    paused = true;
-    diffIndex = Math.min(diffIndex + 1, diffSteps.length - 1);
-    nextDifficultyAt += diffSteps[diffIndex];
+    nextDifficultyAt += 150;
     speed += 0.4;
+    if (soundOn) sounds.level.play();
+    if (navigator.vibrate) navigator.vibrate(80);
   }
 
-  if (Math.random() < 0.018) spawnEnemy();
-  if (Math.random() < 0.004) spawnPowerup();
+  if (Math.random() < 0.02) spawnEnemy();
+  if (score > 100 && Math.random() < 0.01) spawnPowerup();
 
   enemies.forEach(e => e.y += speed);
   powerups.forEach(p => p.y += speed);
 
-  if (Math.abs(targetX - player.x) < 2) autoCenter();
-  else player.x += (targetX - player.x) * 0.2;
+  player.x += (target.x - player.x) * 0.2;
+  player.y += (target.y - player.y) * 0.2;
 }
 
-continueBtn.addEventListener("click", () => {
-  paused = false;
-  levelModal.classList.add("hidden");
-});
-
-/* COLLISION */
 function collide(ax, ay, aw, ah, bx, by, br) {
   return Math.abs(ax - bx) < aw / 2 + br &&
          Math.abs(ay - by) < ah / 2 + br;
@@ -228,16 +207,18 @@ function draw() {
     ctx.beginPath();
     ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2);
     ctx.fill();
-    if (collide(player.x + 40, player.y + 40, 80, 80, e.x, e.y, e.r)) {
-      endGame();
-    }
+    if (collide(player.x + 40, player.y + 40, 80, 80, e.x, e.y, e.r)) endGame();
   });
 
   powerups.forEach(p => {
-    ctx.fillStyle = "cyan";
+    ctx.fillStyle = "gold";
     ctx.beginPath();
     ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
     ctx.fill();
+    if (collide(player.x + 40, player.y + 40, 80, 80, p.x, p.y, p.r)) {
+      if (soundOn) sounds.coin.play();
+      if (navigator.vibrate) navigator.vibrate(50);
+    }
   });
 }
 
@@ -254,9 +235,9 @@ restartBtn.addEventListener("click", initGame);
 menuBtn.addEventListener("click", () => location.reload());
 
 shareBtn.addEventListener("click", () => {
-  const msg = `I just scored ${bestScore} on Seamless Dash. A fun way Seamex blends play with productivity. Think you can beat me?`;
+  const msg = `I just scored ${bestScore} on Seamless Dash. A quick break. A smart dash. Think you can beat me?`;
   if (navigator.share) navigator.share({ text: msg, url: "https://seamex.app.link/download" });
-  else alert(msg);
+  else alert(msg + "\n" + "https://seamex.app.link/download");
 });
 
 /* MUSIC */
