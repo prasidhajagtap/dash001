@@ -9,14 +9,39 @@ function resize() {
 window.addEventListener("resize", resize);
 resize();
 
-const playerImg = new Image();
-playerImg.src = "character.png";
+const playerImg = document.getElementById("player-img");
 
-let player = { x: W / 2, y: H * 0.6, w: 80, h: 80, vx: 0 };
+/* DOM */
+const startScreen = document.getElementById("start-screen");
+const loginSection = document.getElementById("login-section");
+const returningSection = document.getElementById("returning-user-section");
+const startBtn = document.getElementById("start-btn");
+const quickStartBtn = document.getElementById("quick-start-btn");
+const changeUserBtn = document.getElementById("change-user-link");
+const nameInput = document.getElementById("player-name");
+const idInput = document.getElementById("player-id");
+const nameErr = document.getElementById("name-val");
+const idErr = document.getElementById("id-val");
+const hud = document.getElementById("game-hud");
+const scoreEl = document.getElementById("score");
+const levelEl = document.getElementById("level");
+const pauseBtn = document.getElementById("pause-btn");
+const pauseOverlay = document.getElementById("pause-overlay");
+const resumeBtn = document.getElementById("resume-btn");
+const levelModal = document.getElementById("level-modal");
+const triviaText = document.getElementById("trivia-text");
+const continueBtn = document.getElementById("continue-btn");
+const gameOver = document.getElementById("game-over-screen");
+const finalScoreEl = document.getElementById("final-score");
+const bestScoreEl = document.getElementById("best-score");
+const restartBtn = document.getElementById("restart-btn");
+const menuBtn = document.getElementById("menu-btn");
+const shareBtn = document.getElementById("share-btn");
+const musicToggle = document.getElementById("music-toggle");
 
-let enemies = [];
-let powerups = [];
-
+/* STATE */
+let running = false;
+let paused = false;
 let score = 0;
 let bestScore = Number(localStorage.getItem("bestScore")) || 0;
 let level = 1;
@@ -24,71 +49,113 @@ let nextDifficultyAt = 100;
 let diffSteps = [100, 200, 150, 150];
 let diffIndex = 0;
 let speed = 2;
-
-let running = false;
+let player = { x: W / 2, y: H * 0.6, w: 80, h: 80, vx: 0 };
+let enemies = [];
+let powerups = [];
+let targetX = player.x;
+let shieldActive = false;
 let focusMode = false;
 let achievedBadges = new Set();
 
-let targetX = player.x;
+const triviaList = [
+  "Poornata supports the complete employee lifecycle.",
+  "Seamex enables seamless HR operations across the Group.",
+  "Digital onboarding reduces joining friction by 40%.",
+  "Secure data handling is core to Poornata.",
+  "Employee self-service drives productivity."
+];
 
-/* LOGIN ELEMENTS */
-const nameInput = document.getElementById("empName");
-const idInput = document.getElementById("poornataId");
-const startBtn = document.getElementById("startBtn");
-const loginModal = document.getElementById("login-modal");
-
-/* SOUNDS */
+/* AUDIO */
 const sounds = {
   theme: new Audio("https://cdn.jsdelivr.net/gh/joshua19881228/free-music-files@master/super-mario-bros-theme.mp3"),
   coin: new Audio("https://cdn.jsdelivr.net/gh/joshua19881228/free-music-files@master/coin.mp3"),
   die: new Audio("https://cdn.jsdelivr.net/gh/joshua19881228/free-music-files@master/mario-death.mp3")
 };
-
 sounds.theme.loop = true;
 sounds.theme.volume = 0.25;
-
-function vibrate(ms = 50) {
-  if (navigator.vibrate) navigator.vibrate(ms);
-}
+let soundOn = true;
 
 /* VALIDATION */
 function validateInputs() {
-  const nameValid = /^[A-Za-z ]{3,}$/.test(nameInput.value.trim());
-  const idValid = /^[0-9]{4,}$/.test(idInput.value.trim());
-
-  nameInput.setCustomValidity(nameValid ? "" : "Name must contain only letters and at least 3 characters");
-  idInput.setCustomValidity(idValid ? "" : "Poornata ID must be numeric and at least 4 digits");
-
-  startBtn.disabled = !(nameValid && idValid);
+  const nameOk = /^[A-Za-z ]{3,}$/.test(nameInput.value.trim());
+  const idOk = /^[0-9]{4,}$/.test(idInput.value.trim());
+  nameErr.style.visibility = nameOk ? "hidden" : "visible";
+  idErr.style.visibility = idOk ? "hidden" : "visible";
+  startBtn.disabled = !(nameOk && idOk);
 }
 
-/* Bind validation */
 nameInput.addEventListener("input", validateInputs);
 idInput.addEventListener("input", validateInputs);
 
-/* START */
-startBtn.addEventListener("click", () => {
-  loginModal.style.display = "none";
+/* LOGIN FLOW */
+function startGame() {
+  localStorage.setItem("seamex_user", JSON.stringify({
+    name: nameInput.value.trim(),
+    id: idInput.value.trim(),
+    time: Date.now()
+  }));
+  initGame();
+}
+
+function initGame() {
+  startScreen.classList.add("hidden");
+  hud.classList.remove("hidden");
   running = true;
-  sounds.theme.play().catch(()=>{});
+  paused = false;
+  score = 0;
+  level = 1;
+  speed = 2;
+  enemies = [];
+  powerups = [];
+  achievedBadges.clear();
+  if (soundOn) sounds.theme.play().catch(()=>{});
+}
+
+startBtn.addEventListener("click", startGame);
+
+quickStartBtn.addEventListener("click", () => {
+  const u = JSON.parse(localStorage.getItem("seamex_user"));
+  if (u) {
+    nameInput.value = u.name;
+    idInput.value = u.id;
+    initGame();
+  }
 });
 
-/* INPUT */
+changeUserBtn.addEventListener("click", () => {
+  returningSection.classList.add("hidden");
+  loginSection.classList.remove("hidden");
+});
+
+const savedUser = JSON.parse(localStorage.getItem("seamex_user"));
+if (savedUser) {
+  document.getElementById("display-name").textContent = savedUser.name;
+  returningSection.classList.remove("hidden");
+  loginSection.classList.add("hidden");
+}
+
+/* CONTROLS */
 canvas.addEventListener("touchmove", e => {
-  if (!running) return;
+  if (!running || paused) return;
   targetX = e.touches[0].clientX - player.w / 2;
 });
 
 canvas.addEventListener("mousemove", e => {
-  if (!running) return;
+  if (!running || paused) return;
   if (e.buttons === 1) targetX = e.clientX - player.w / 2;
 });
 
-canvas.addEventListener("click", e => {
-  if (!running) return;
-  if (e.clientX > W - 80 && e.clientY < 80) focusMode = !focusMode;
+pauseBtn.addEventListener("click", () => {
+  paused = true;
+  pauseOverlay.classList.remove("hidden");
 });
 
+resumeBtn.addEventListener("click", () => {
+  paused = false;
+  pauseOverlay.classList.add("hidden");
+});
+
+/* GAME */
 function spawnEnemy() {
   enemies.push({ x: Math.random() * (W - 40), y: -40, r: 22 });
 }
@@ -100,47 +167,35 @@ function spawnPowerup() {
 function drawBackground() {
   ctx.fillStyle = "#050b1f";
   ctx.fillRect(0, 0, W, H);
-  if (!focusMode) {
-    ctx.strokeStyle = "rgba(255,255,255,0.05)";
-    for (let i = 0; i < 20; i++) {
-      ctx.beginPath();
-      ctx.moveTo(Math.random() * W, Math.random() * H);
-      ctx.lineTo(Math.random() * W, Math.random() * H + 80);
-      ctx.stroke();
-    }
-  }
 }
 
 function autoCenter() {
-  const center = W / 2 - player.w / 2;
-  player.vx += (center - player.x) * 0.0005;
+  const c = W / 2 - player.w / 2;
+  player.vx += (c - player.x) * 0.0005;
   player.vx *= 0.9;
   player.x += player.vx;
 }
 
 function update() {
-  if (!running) return;
+  if (!running || paused) return;
 
   score += 0.15;
+  scoreEl.textContent = Math.floor(score);
 
   if (score > bestScore) {
     bestScore = Math.floor(score);
     localStorage.setItem("bestScore", bestScore);
-    vibrate(80);
   }
-
-  [500, 1000, 2000].forEach(v => {
-    if (score > v && !achievedBadges.has(v)) {
-      achievedBadges.add(v);
-      vibrate(120);
-    }
-  });
 
   if (score > nextDifficultyAt) {
     level++;
-    speed += 0.4;
+    levelEl.textContent = level;
+    triviaText.textContent = triviaList[level % triviaList.length];
+    levelModal.classList.remove("hidden");
+    paused = true;
     diffIndex = Math.min(diffIndex + 1, diffSteps.length - 1);
     nextDifficultyAt += diffSteps[diffIndex];
+    speed += 0.4;
   }
 
   if (Math.random() < 0.018) spawnEnemy();
@@ -153,6 +208,12 @@ function update() {
   else player.x += (targetX - player.x) * 0.2;
 }
 
+continueBtn.addEventListener("click", () => {
+  paused = false;
+  levelModal.classList.add("hidden");
+});
+
+/* COLLISION */
 function collide(ax, ay, aw, ah, bx, by, br) {
   return Math.abs(ax - bx) < aw / 2 + br &&
          Math.abs(ay - by) < ah / 2 + br;
@@ -168,8 +229,7 @@ function draw() {
     ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2);
     ctx.fill();
     if (collide(player.x + 40, player.y + 40, 80, 80, e.x, e.y, e.r)) {
-      sounds.die.play();
-      running = false;
+      endGame();
     }
   });
 
@@ -178,26 +238,39 @@ function draw() {
     ctx.beginPath();
     ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
     ctx.fill();
-    if (collide(player.x + 40, player.y + 40, 80, 80, p.x, p.y, p.r)) {
-      sounds.coin.play();
-      vibrate(60);
-    }
   });
-
-  ctx.fillStyle = "#fff";
-  ctx.fillText(`Score: ${Math.floor(score)}`, 20, 30);
-  ctx.fillText(`Best: ${bestScore}`, 20, 50);
 }
 
+function endGame() {
+  running = false;
+  gameOver.classList.remove("hidden");
+  finalScoreEl.textContent = Math.floor(score);
+  bestScoreEl.textContent = bestScore;
+  if (soundOn) sounds.die.play();
+}
+
+/* GAME OVER */
+restartBtn.addEventListener("click", initGame);
+menuBtn.addEventListener("click", () => location.reload());
+
+shareBtn.addEventListener("click", () => {
+  const msg = `I just scored ${bestScore} on Seamless Dash. A fun way Seamex blends play with productivity. Think you can beat me?`;
+  if (navigator.share) navigator.share({ text: msg, url: "https://seamex.app.link/download" });
+  else alert(msg);
+});
+
+/* MUSIC */
+musicToggle.addEventListener("click", () => {
+  soundOn = !soundOn;
+  musicToggle.textContent = soundOn ? "🔊 Sound On" : "🔇 Sound Off";
+  if (soundOn) sounds.theme.play().catch(()=>{});
+  else sounds.theme.pause();
+});
+
+/* LOOP */
 function loop() {
   update();
   draw();
   requestAnimationFrame(loop);
 }
-
 loop();
-
-window.shareScore = function () {
-  const msg = `I just scored ${bestScore} on Seamless Dash. A fun way Seamex blends play with productivity. Think you can beat me?`;
-  navigator.share({ text: msg, url: "https://seamex.app.link/download" });
-};
