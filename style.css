@@ -9,6 +9,10 @@ html, body {
   overflow: hidden;
 }
 
+#gameCanvas {
+    background: linear-gradient(#e3f2fd, #f8f9fa);
+}
+
 canvas {
   position: fixed;
   inset: 0;
