@@ -1,93 +1,88 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Seamless Dash - Seamex</title>
-    <link rel="stylesheet" href="style.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Seamless Dash – Seamex</title>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <img id="player-img" src="character.png" alt="Player" style="display:none;">
-    
-    <div id="ui-layer">
-        <div id="start-screen" class="screen-box">
-            <div class="branding-header">
-                <h1 class="game-title">SEAMLESS DASH</h1>
-                <p class="powered-text">POWERED BY</p>
-                <img src="NEW Seamex logo.png" alt="Seamex" class="responsive-logo">
-            </div>
 
-            <div id="returning-user-section" class="hidden">
-                <p class="welcome-text">Welcome back, <br><strong id="display-name"></strong>!</p>
-                <button id="quick-start-btn" class="main-btn">START DASHING 🚀</button>
-                <button id="change-user-link" class="secondary-btn">NOT YOU? CHANGE USER</button>
-            </div>
+<img id="player-img" src="character.png" alt="Player" style="display:none;">
 
-            <div id="login-section">
-                <div class="login-form">
-                    <div class="input-group">
-                        <input type="text" id="player-name" placeholder="Employee Name" autocomplete="off">
-                        <span class="val-err" id="name-val">Letters only (min 3)</span>
-                    </div>
-                    <div class="input-group">
-                        <input type="tel" id="player-id" placeholder="Poornata ID" maxlength="10">
-                        <span class="val-err" id="id-val">Numbers only (min 4)</span>
-                    </div>
-                    <button id="start-btn" class="main-btn" disabled>START DASHING 🚀</button>
-                </div>
-            </div>
+<div id="ui-layer">
 
-            <div class="how-to-card">
-                <div class="how-to-header">GAME GUIDE</div>
-                <div class="how-row"><span>👆</span><p><strong>Move:</strong> Drag your finger to move the character.</p></div>
-                <div class="how-row"><span>🔴</span><p><strong>Dodge:</strong> Avoid red orbs to stay alive.</p></div>
-                <div class="how-row"><span>🛡️</span><p><strong>Shield:</strong> 8s of invincibility (Blue Aura).</p></div>
-                <div class="how-row"><span>⏳</span><p><strong>Warp:</strong> Slows time (Appears after Lvl 5).</p></div>
-            </div>
-        </div>
-
-        <div id="game-hud" class="hidden">
-            <div class="hud-top">
-                <div class="stat-pill">👤 <span id="hud-name"></span></div>
-                <div class="stat-pill">⭐ <span id="score">0</span></div>
-                <button id="pause-btn" class="pause-circle">❚❚</button>
-                <div class="stat-pill">LVL <span id="level">1</span></div>
-            </div>
-            <div id="shield-indicator" class="hidden">🛡️ SHIELD: <span id="shield-timer">8</span>s</div>
-        </div>
-
-        <div id="pause-overlay" class="hidden overlay-modal">
-            <h1>GAME PAUSED</h1>
-            <p>Ready to continue your dash?</p>
-            <button id="resume-btn" class="main-btn">▶ RESUME</button>
-        </div>
-
-        <div id="level-modal" class="hidden overlay-modal">
-            <h2>🎉 LEVEL UP!</h2>
-            <div class="trivia-box">
-                <p id="trivia-text"></p>
-            </div>
-            <button id="continue-btn" class="main-btn">KEEP DASHING</button>
-        </div>
-
-        <div id="game-over-screen" class="hidden overlay-modal">
-            <div id="capture-area">
-                <h1 class="go-title">DASH OVER</h1>
-                <div class="score-card"><span>SCORE</span><span id="final-score">0</span></div>
-                <div class="score-card"><span>BEST</span><span id="best-score">0</span></div>
-            </div>
-            <button id="share-btn" class="main-btn">CHALLENGE FRIENDS 🚀</button>
-            <button id="restart-btn" class="main-btn">PLAY AGAIN 🔄</button>
-            <button id="menu-btn" class="secondary-btn">MAIN MENU</button>
-        </div>
-
-        <div id="ui-footer">
-            <button id="music-toggle" class="footer-btn">🔊 Sound On</button>
-        </div>
+  <div id="start-screen" class="screen-box">
+    <div class="branding-header">
+      <h1 class="game-title">SEAMLESS DASH</h1>
+      <p class="powered-text">POWERED BY</p>
+      <img src="NEW Seamex logo.png" class="responsive-logo">
     </div>
 
-    <canvas id="gameCanvas"></canvas>
-    <script src="script.js"></script>
+    <div id="returning-user-section" class="hidden">
+      <p class="welcome-text">Welcome back, <strong id="display-name"></strong></p>
+      <button id="quick-start-btn" class="main-btn">START DASHING 🚀</button>
+      <button id="change-user-link" class="secondary-btn">CHANGE USER</button>
+    </div>
+
+    <div id="login-section">
+      <div class="login-form">
+        <div class="input-group">
+          <input id="player-name" placeholder="Employee Name">
+          <span class="val-err" id="name-val">Letters only (min 3)</span>
+        </div>
+        <div class="input-group">
+          <input id="player-id" placeholder="Poornata ID" maxlength="10">
+          <span class="val-err" id="id-val">Numbers only (min 4)</span>
+        </div>
+        <button id="start-btn" class="main-btn" disabled>START DASHING 🚀</button>
+      </div>
+    </div>
+
+    <div class="how-to-card">
+      <div class="how-to-header">GAME GUIDE</div>
+      <div class="how-row">👆 Drag to move</div>
+      <div class="how-row">🔴 Dodge enemies</div>
+      <div class="how-row">🛡️ Shield power</div>
+      <div class="how-row">⏳ Warp power</div>
+    </div>
+  </div>
+
+  <div id="game-hud" class="hidden">
+    <div class="stat-pill">👤 <span id="hud-name"></span></div>
+    <div class="stat-pill">⭐ <span id="score">0</span></div>
+    <div class="stat-pill">LVL <span id="level">1</span></div>
+    <button id="pause-btn" class="pause-circle">❚❚</button>
+  </div>
+
+  <div id="pause-overlay" class="hidden overlay-modal">
+    <h1>GAME PAUSED</h1>
+    <p id="pause-trivia"></p>
+    <button id="resume-btn" class="main-btn">▶ RESUME</button>
+  </div>
+
+  <div id="level-modal" class="hidden overlay-modal">
+    <h2>LEVEL UP 🎉</h2>
+    <p id="trivia-text"></p>
+    <button id="continue-btn" class="main-btn">KEEP DASHING</button>
+  </div>
+
+  <div id="game-over-screen" class="hidden overlay-modal">
+    <h1>DASH OVER</h1>
+    <div>SCORE <span id="final-score"></span></div>
+    <div>BEST <span id="best-score"></span></div>
+    <button id="share-btn" class="main-btn">CHALLENGE FRIENDS 🚀</button>
+    <button id="restart-btn" class="main-btn">PLAY AGAIN 🔄</button>
+    <button id="menu-btn" class="secondary-btn">MAIN MENU</button>
+  </div>
+
+  <div id="ui-footer">
+    <button id="music-toggle" class="footer-btn">🔊 Sound On</button>
+  </div>
+
+</div>
+
+<canvas id="gameCanvas"></canvas>
+<script src="script.js"></script>
 </body>
 </html>
