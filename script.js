@@ -23,13 +23,14 @@ const sounds = {
     over: new Audio('https://assets.mixkit.co/active_storage/sfx/2018/2018-preview.mp3'),
     slow: new Audio('https://assets.mixkit.co/active_storage/sfx/614/614-preview.mp3')
 };
-const bgMusic = new Audio('https://ia800504.us.archive.org/33/items/26_20240320_202403/Retro%20Game.mp3');
+const bgMusic = new Audio("https://cdn.jsdelivr.net/gh/joshua19881228/free-music-files@master/super-mario-bros-theme.mp3");
 bgMusic.loop = true;
+bgMusic.volume = 0.4;
 let isMuted = false;
 
 function unlockAudio() {
-    bgMusic.currentTime = 0;
-    if (!isMuted) bgMusic.play().catch(()=>{});
+bgMusic.currentTime = 0;
+if (!isMuted) bgMusic.play().catch(()=>{});
     Object.values(sounds).forEach(s => { s.muted=false; s.play().then(()=>{s.pause();s.currentTime=0}).catch(()=>{}); });
 }
 
@@ -108,10 +109,20 @@ function animate() {
 
     enemies.forEach((e,i)=>{
         e.y += e.spd; e.rot += 0.05;
-        ctx.save(); ctx.translate(e.x+15,e.y+15); ctx.rotate(e.rot);
-        ctx.fillStyle='#D32F2F'; ctx.beginPath();
-        for(let j=0;j<10;j++){ const a=j/10*Math.PI*2; const r=j%2?15:10; ctx.lineTo(Math.cos(a)*r,Math.sin(a)*r); }
-        ctx.closePath(); ctx.fill(); ctx.restore();
+      ctx.save();
+ctx.translate(e.x + 15, e.y + 15);
+ctx.rotate(e.rot);
+ctx.fillStyle = "#c62828";
+ctx.beginPath();
+for (let i = 0; i < 14; i++) {
+    const a = (i / 14) * Math.PI * 2;
+    const r = i % 2 === 0 ? 18 : 9;
+    ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+}
+ctx.closePath();
+ctx.fill();
+ctx.restore();
+
 
         if(e.x < player.x+75 && e.x+30 > player.x+10 && e.y < player.y+75 && e.y+30 > player.y+10){
             if(shieldActive){
@@ -212,7 +223,18 @@ function validate(){
 
 document.getElementById('start-btn').addEventListener('click',()=>start(nameInp.value.trim(),idInp.value.trim()));
 document.getElementById('restart-btn').addEventListener('click',()=>start(playerName,poornataId));
-document.getElementById('menu-btn').addEventListener('click',()=>location.reload());
+document.getElementById('menu-btn').addEventListener('click',()=>{
+    gameState = 'START';
+    isPaused = false;
+    running = false;
+
+    document.getElementById('game-over-screen').classList.add('hidden');
+    document.getElementById('game-hud').classList.add('hidden');
+    document.getElementById('start-screen').classList.remove('hidden');
+
+    // allow UI to receive clicks again
+    document.getElementById('ui-layer').style.pointerEvents = 'auto';
+});
 document.getElementById('pause-btn').addEventListener('click',()=>{isPaused=true; bgMusic.pause(); document.getElementById('pause-trivia').innerText=triviaList[Math.floor(Math.random()*triviaList.length)]; document.getElementById('pause-overlay').classList.remove('hidden');});
 document.getElementById('resume-btn').addEventListener('click',()=>{isPaused=false; if(!isMuted) bgMusic.play(); document.getElementById('pause-overlay').classList.add('hidden'); requestAnimationFrame(animate);});
 document.getElementById('continue-btn').addEventListener('click',()=>{document.getElementById('level-modal').classList.add('hidden'); isPaused=false; if(!isMuted) bgMusic.play(); requestAnimationFrame(animate);});
