@@ -16,7 +16,6 @@ let player = { x: W / 2, y: H * 0.6, w: 80, h: 80, vx: 0 };
 
 let enemies = [];
 let powerups = [];
-let particles = [];
 
 let score = 0;
 let bestScore = Number(localStorage.getItem("bestScore")) || 0;
@@ -30,6 +29,8 @@ let running = false;
 let focusMode = false;
 let shieldActive = false;
 let achievedBadges = new Set();
+
+let targetX = player.x;
 
 const triviaList = [
   "Poornata supports the complete employee lifecycle.",
@@ -52,51 +53,51 @@ function vibrate(ms = 50) {
   if (navigator.vibrate) navigator.vibrate(ms);
 }
 
-let targetX = player.x;
+/* LOGIN WATCHER */
+function checkLogin() {
+  const modal = document.getElementById("login-modal");
+  const nameInput = document.getElementById("empName");
+  const idInput = document.getElementById("poornataId");
 
-canvas.addEventListener("touchstart", e => {
-  running = true;
-  sounds.theme.play().catch(()=>{});
-  targetX = e.touches[0].clientX - player.w / 2;
-});
+  if (!modal) return false;
+  if (modal.style.display !== "none") return false;
+  if (!nameInput || !idInput) return false;
+  if (nameInput.value.trim().length < 3) return false;
+  if (idInput.value.trim().length < 4) return false;
 
+  return true;
+}
+
+/* INPUT */
 canvas.addEventListener("touchmove", e => {
+  if (!running) return;
   targetX = e.touches[0].clientX - player.w / 2;
 });
 
 canvas.addEventListener("mousemove", e => {
+  if (!running) return;
   if (e.buttons === 1) targetX = e.clientX - player.w / 2;
 });
 
 canvas.addEventListener("click", e => {
-  if (e.clientX > W - 80 && e.clientY < 80) {
-    focusMode = !focusMode;
-  }
+  if (!running) return;
+  if (e.clientX > W - 80 && e.clientY < 80) focusMode = !focusMode;
 });
 
 function spawnEnemy() {
-  enemies.push({
-    x: Math.random() * (W - 40),
-    y: -40,
-    r: 22
-  });
+  enemies.push({ x: Math.random() * (W - 40), y: -40, r: 22 });
 }
 
 function spawnPowerup() {
-  powerups.push({
-    x: Math.random() * (W - 30),
-    y: -30,
-    r: 15,
-    type: "shield"
-  });
+  powerups.push({ x: Math.random() * (W - 30), y: -30, r: 15 });
 }
 
 function drawBackground() {
   ctx.fillStyle = "#050b1f";
   ctx.fillRect(0, 0, W, H);
   if (!focusMode) {
-    ctx.strokeStyle = "rgba(255,255,255,0.06)";
-    for (let i = 0; i < 25; i++) {
+    ctx.strokeStyle = "rgba(255,255,255,0.05)";
+    for (let i = 0; i < 20; i++) {
       ctx.beginPath();
       ctx.moveTo(Math.random() * W, Math.random() * H);
       ctx.lineTo(Math.random() * W, Math.random() * H + 80);
@@ -108,7 +109,7 @@ function drawBackground() {
 function autoCenter() {
   const center = W / 2 - player.w / 2;
   player.vx += (center - player.x) * 0.0005;
-  player.vx *= 0.92;
+  player.vx *= 0.9;
   player.x += player.vx;
 }
 
@@ -162,7 +163,6 @@ function draw() {
     ctx.beginPath();
     ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2);
     ctx.fill();
-
     if (collide(player.x + 40, player.y + 40, 80, 80, e.x, e.y, e.r)) {
       sounds.die.play();
       running = false;
@@ -174,12 +174,9 @@ function draw() {
     ctx.beginPath();
     ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
     ctx.fill();
-
     if (collide(player.x + 40, player.y + 40, 80, 80, p.x, p.y, p.r)) {
       sounds.coin.play();
       vibrate(60);
-      shieldActive = true;
-      setTimeout(() => shieldActive = false, 8000);
     }
   });
 
@@ -187,10 +184,15 @@ function draw() {
   ctx.fillText(`Score: ${Math.floor(score)}`, 20, 30);
   ctx.fillText(`Best: ${bestScore}`, 20, 50);
 
-  if (focusMode) ctx.fillText("Focus", W - 60, 40);
+  if (!checkLogin()) ctx.fillText("Please login to start", W / 2 - 80, H / 2);
 }
 
 function loop() {
+  if (!running && checkLogin()) {
+    running = true;
+    sounds.theme.play().catch(()=>{});
+  }
+
   update();
   draw();
   requestAnimationFrame(loop);
