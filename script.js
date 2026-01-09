@@ -20,6 +20,11 @@ const idInput = document.getElementById("player-id");
 const nameErr = document.getElementById("name-val");
 const idErr = document.getElementById("id-val");
 const hud = document.getElementById("game-hud");
+hud.style.display = "flex";
+hud.style.flexDirection = "row";
+hud.style.alignItems = "center";
+hud.style.gap = "10px";
+
 const hudName = document.getElementById("hud-name");
 const scoreEl = document.getElementById("score");
 const levelEl = document.getElementById("level");
@@ -36,6 +41,7 @@ const musicToggle = document.getElementById("music-toggle");
 const levelModal = document.getElementById("level-modal");
 const triviaText = document.getElementById("trivia-text");
 const continueBtn = document.getElementById("continue-btn");
+const pauseTrivia = document.getElementById("pause-trivia");
 
 /* Game state */
 let running=false, paused=false;
@@ -95,16 +101,17 @@ canvas.ontouchstart = canvas.ontouchmove = e=>{
  unlockAudio();
  const t=e.touches[0];
  target.x = t.clientX - player.w/2;
- target.y = t.clientY - player.h/2 - 40;
+ target.y = t.clientY - player.h/2 - 50; // increased offset
 };
 canvas.onmousemove = e=>{
  if(!running||paused||!e.buttons) return;
  target.x = e.clientX - player.w/2;
- target.y = e.clientY - player.h/2 - 40;
+ target.y = e.clientY - player.h/2 - 50;
 };
 
 pauseBtn.onclick = ()=>{
  paused=true;
+ pauseTrivia.textContent = triviaList[Math.floor(Math.random()*triviaList.length)];
  pauseOverlay.classList.remove("hidden");
 };
 resumeBtn.onclick = ()=>{
@@ -153,9 +160,12 @@ function initGame(){
  hudName.textContent = nameInput.value;
  levelEl.textContent = level;
 }
-function spawnEnemy(){ enemies.push({x:Math.random()*(W-40),y:-40,r:20}); }
+function spawnEnemy(){ enemies.push({x:Math.random()*(W-40),y:-40,r:20,rot:Math.random()*Math.PI}); }
 function spawnPowerup(){ powerups.push({x:Math.random()*(W-30),y:-30,r:16,type:Math.random()>0.5?"shield":"warp"}); }
 function hit(ax,ay,aw,ah,bx,by,br){ return Math.abs(ax-bx)<aw/2+br-10 && Math.abs(ay-by)<ah/2+br-10; }
+
+/* Background motion */
+let bgOffset = 0;
 
 /* Update */
 function update(){
@@ -181,9 +191,9 @@ function update(){
  }
 
  if(Math.random()<0.02) spawnEnemy();
- if(score>100 && Math.random()<0.008) spawnPowerup();
+ if(score>100 && Math.random()<0.012) spawnPowerup();
 
- enemies.forEach(e=>e.y+=speed);
+ enemies.forEach(e=>{ e.y+=speed; e.rot+=0.05; });
  powerups.forEach(p=>p.y+=speed);
 
  player.x += (target.x-player.x)*0.2;
@@ -192,13 +202,35 @@ function update(){
 
 /* Draw */
 function draw(){
- ctx.clearRect(0,0,W,H);
- ctx.fillStyle="#7ecbff"; ctx.fillRect(0,0,W,H);
+ bgOffset += speed*0.3;
+ ctx.fillStyle="#7ecbff";
+ ctx.fillRect(0,0,W,H);
+ ctx.strokeStyle="rgba(255,255,255,0.25)";
+ for(let i=0;i<25;i++){
+  const y = (i*100 + bgOffset) % H;
+  ctx.beginPath();
+  ctx.moveTo(0,y);
+  ctx.lineTo(W,y+40);
+  ctx.stroke();
+ }
+
  ctx.drawImage(playerImg,player.x,player.y,player.w,player.h);
 
  enemies.forEach(e=>{
+  ctx.save();
+  ctx.translate(e.x,e.y);
+  ctx.rotate(e.rot);
   ctx.fillStyle="#ff4d4d";
-  ctx.beginPath(); ctx.arc(e.x,e.y,e.r,0,Math.PI*2); ctx.fill();
+  ctx.beginPath();
+  for(let i=0;i<10;i++){
+   const a=i/10*Math.PI*2;
+   const r=i%2===0?e.r:e.r-6;
+   ctx.lineTo(Math.cos(a)*r,Math.sin(a)*r);
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
   if(hit(player.x+40,player.y+40,80,80,e.x,e.y,e.r)) endGame();
  });
 
@@ -214,6 +246,7 @@ function draw(){
 
 function endGame(){
  running=false;
+ triviaText.textContent = triviaList[Math.floor(Math.random()*triviaList.length)];
  gameOver.classList.remove("hidden");
  finalScoreEl.textContent=Math.floor(score);
  bestScoreEl.textContent=bestScore;
