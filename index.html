@@ -4,90 +4,585 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Seamless Dash - Seamex</title>
-    <link rel="stylesheet" href="style.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        :root { --red: #A01018; --gold: #FFC107; --blue: #0984e3; }
+        
+        /* Core Reset & Fonts */
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #f0f2f5; font-family: 'Segoe UI', system-ui, sans-serif; touch-action: none; user-select: none; -webkit-user-select: none; }
+        
+        /* Canvas Layer */
+        canvas { display: block; position: absolute; top: 0; left: 0; z-index: 1; width: 100%; height: 100%; }
+        
+        /* UI Layer - Controlled by Body Classes */
+        #ui-layer { position: absolute; inset: 0; z-index: 10; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        
+        /* State Management Utility Classes */
+        .hidden { display: none !important; }
+        body.state-playing #start-screen, 
+        body.state-playing #game-over-screen,
+        body.state-playing #ui-footer { display: none !important; }
+        body.state-playing #game-hud { display: flex !important; }
+        
+        /* Screens (Start / Game Over) */
+        .screen-box { 
+            background: white; padding: 25px; border-radius: 20px; width: 85%; max-width: 350px; 
+            text-align: center; pointer-events: auto; box-shadow: 0 15px 40px rgba(0,0,0,0.2); 
+            border-top: 8px solid var(--red); animation: popIn 0.3s ease-out;
+            position: relative; z-index: 20;
+        }
+
+        /* Branding */
+        .responsive-logo { width: 140px; height: auto; margin: 10px auto; display: block; }
+        .game-title { color: var(--red); font-size: 26px; font-weight: 900; margin: 0; letter-spacing: -1px; text-transform: uppercase; }
+        .powered-text { font-size: 10px; color: #888; font-weight: bold; margin-bottom: 5px; letter-spacing: 1px; }
+
+        /* Forms & Inputs */
+        .input-group { margin-bottom: 15px; text-align: left; }
+        input { 
+            width: 100%; padding: 14px; border: 2px solid #eee; border-radius: 12px; 
+            font-size: 16px; box-sizing: border-box; outline: none; transition: border-color 0.3s;
+        }
+        input:focus { border-color: var(--red); }
+        .val-err { color: var(--red); font-size: 11px; font-weight: bold; margin-top: 4px; display: block; min-height: 15px; visibility: hidden; }
+        
+        /* Buttons */
+        .main-btn, .secondary-btn { 
+            background: linear-gradient(135deg, var(--gold), var(--red)); color: white; border: none; 
+            padding: 16px; border-radius: 50px; font-weight: 800; width: 100%; cursor: pointer; 
+            margin-top: 10px; font-size: 16px; box-shadow: 0 5px 15px rgba(160, 16, 24, 0.3); 
+            transition: transform 0.1s; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .main-btn:active { transform: scale(0.96); }
+        .main-btn:disabled { opacity: 0.5; filter: grayscale(1); cursor: not-allowed; }
+        .secondary-btn { background: #fff; border: 2px solid #eee; color: #555; box-shadow: none; font-size: 14px; padding: 12px; }
+
+        /* Game HUD */
+        #game-hud { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            display: none; flex-direction: column; align-items: center; z-index: 5; pointer-events: none;
+        }
+        .hud-top { 
+            position: absolute; top: 15px; width: 92%; display: flex; 
+            justify-content: space-between; align-items: center; pointer-events: none; 
+        }
+        .stat-pill { 
+            background: rgba(255,255,255,0.9); padding: 8px 12px; border-radius: 20px; 
+            font-weight: 800; color: var(--red); box-shadow: 0 2px 8px rgba(0,0,0,0.1); 
+            font-size: 14px; border: 1px solid #eee; 
+        }
+        .pause-btn { 
+            background: white; color: var(--red); border: 2px solid var(--red); width: 40px; height: 40px; 
+            border-radius: 50%; font-weight: bold; font-size: 18px; pointer-events: auto; display: grid; place-items: center;
+        }
+
+        /* Notifications (Seamless Toast) */
+        #toast-container {
+            position: absolute; top: 80px; left: 50%; transform: translateX(-50%);
+            width: 90%; max-width: 400px; z-index: 100; pointer-events: none;
+        }
+        .toast {
+            background: rgba(255, 255, 255, 0.95); padding: 15px; border-radius: 12px; margin-bottom: 10px;
+            border-left: 5px solid var(--gold); box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            animation: slideDown 0.5s ease-out forwards; display: flex; align-items: center; gap: 10px;
+        }
+        .toast-icon { font-size: 20px; }
+        .toast-text { font-size: 13px; color: #333; font-weight: 600; line-height: 1.3; text-align: left; }
+
+        /* Game Over Stats */
+        .score-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 15px 0; }
+        .stat-box { background: #f9f9f9; padding: 10px; border-radius: 10px; border: 1px solid #eee; }
+        .stat-label { font-size: 10px; color: #888; font-weight: bold; text-transform: uppercase; }
+        .stat-val { font-size: 24px; color: var(--red); font-weight: 900; }
+
+        /* Instructions */
+        .how-to { background: #fafafa; padding: 10px; border-radius: 10px; margin-top: 15px; text-align: left; font-size: 12px; color: #555; }
+        .how-row { display: flex; align-items: center; margin-bottom: 5px; }
+        .how-row span { font-size: 16px; margin-right: 8px; width: 20px; text-align: center; }
+
+        /* Visual FX */
+        @keyframes popIn { 0% { transform: scale(0.9); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        @keyframes slideDown { 0% { transform: translateY(-20px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
+        @keyframes fadeOut { 0% { opacity: 1; } 100% { opacity: 0; } }
+        
+        .warp-active canvas { filter: sepia(1) hue-rotate(190deg) saturate(2); transition: filter 0.5s; }
+        
+        #ui-footer { position: fixed; bottom: 20px; left: 20px; z-index: 50; pointer-events: auto; }
+        .mute-btn { background: rgba(0,0,0,0.6); color: white; padding: 8px 15px; border-radius: 20px; font-size: 12px; border: none; cursor: pointer; }
+
+    </style>
 </head>
-<body>
-    <img id="player-img" src="character.png" alt="Player" style="display:none;">
-    
-    <div id="ui-layer" style="pointer-events:auto; z-index:5;">
+<body class="state-menu">
+
+    <div style="display:none;">
+        <img id="img-player" src="character.png" alt="Player">
+        </div>
+
+    <div id="ui-layer">
+        
         <div id="start-screen" class="screen-box">
-            <div class="branding-header">
-                <h1 class="game-title">SEAMLESS DASH</h1>
-                <p class="powered-text">POWERED BY</p>
-                <img src="NEW Seamex logo.png" alt="Seamex" class="responsive-logo">
+            <h1 class="game-title">Seamless Dash</h1>
+            <p class="powered-text">POWERED BY</p>
+            <img src="NEW Seamex logo.png" alt="Seamex" class="responsive-logo" onerror="this.style.display='none'">
+            
+            <div id="input-container">
+                <div class="input-group">
+                    <input type="text" id="inp-name" placeholder="Enter Name (Letters Only)" autocomplete="off">
+                    <small id="err-name" class="val-err">Name must be letters only (Min 3)</small>
+                </div>
+                <div class="input-group">
+                    <input type="tel" id="inp-id" placeholder="Poornata ID (Numbers Only)" maxlength="10">
+                    <small id="err-id" class="val-err">ID must be numbers only (Min 4)</small>
+                </div>
+                <button id="btn-start" class="main-btn" disabled>START DASHING 🚀</button>
             </div>
 
-            <div id="returning-user-section" class="hidden">
-                <p class="welcome-text">Welcome back, <br><strong id="display-name"></strong>!</p>
-                <button id="quick-start-btn" class="main-btn">START DASHING 🚀</button>
-                <button id="change-user-link" class="secondary-btn">NOT YOU? CHANGE USER</button>
+            <div class="how-to">
+                <div class="how-row"><span>👆</span> Drag to move</div>
+                <div class="how-row"><span>🔴</span> Dodge Red Orbs</div>
+                <div class="how-row"><span>🔵</span> Shield (Invincible 8s)</div>
+                <div class="how-row"><span>⏳</span> Time Warp (Slow Motion)</div>
             </div>
+        </div>
 
-            <div id="login-section">
-                <div class="login-form">
-                    <div class="input-group">
-                        <input type="text" id="player-name" placeholder="Employee Name" autocomplete="off">
-                        <span class="val-err" id="name-val">Letters only (min 3)</span>
-                    </div>
-                    <div class="input-group">
-                        <input type="tel" id="player-id" placeholder="Poornata ID" maxlength="10">
-                        <span class="val-err" id="id-val">Numbers only (min 4)</span>
-                    </div>
-                    <button id="start-btn" class="main-btn" disabled>START DASHING 🚀</button>
+        <div id="game-over-screen" class="screen-box hidden">
+            <h1 class="game-title">DASH OVER!</h1>
+            
+            <div class="score-grid">
+                <div class="stat-box">
+                    <div class="stat-label">Your Score</div>
+                    <div id="final-score" class="stat-val">0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Best Score</div>
+                    <div id="best-score" class="stat-val">0</div>
                 </div>
             </div>
 
-            <div class="how-to-card">
-                <div class="how-to-header">GAME GUIDE</div>
-                <div class="how-row"><span>👆</span><p><strong>Move:</strong> Drag your finger to move the character.</p></div>
-                <div class="how-row"><span>🔴</span><p><strong>Dodge:</strong> Avoid red orbs to stay alive.</p></div>
-                <div class="how-row"><span>🛡️</span><p><strong>Shield:</strong> 8s of invincibility (Blue Aura).</p></div>
-                <div class="how-row"><span>⏳</span><p><strong>Warp:</strong> Slows time (Appears after Lvl 5).</p></div>
-            </div>
-        </div>
-
-        <div id="game-hud" class="hidden">
-            <div class="hud-top">
-                <div class="stat-pill">👤 <span id="hud-name"></span></div>
-                <div class="stat-pill">⭐ <span id="score">0</span></div>
-                <button id="pause-btn" class="pause-circle">❚❚</button>
-                <div class="stat-pill">LVL <span id="level">1</span></div>
-            </div>
-            <div id="shield-indicator" class="hidden">🛡️ SHIELD: <span id="shield-timer">8</span>s</div>
-        </div>
-
-        <div id="pause-overlay" class="hidden overlay-modal">
-            <h1>GAME PAUSED</h1>
-            <p id="pause-trivia"></p>
-            <button id="resume-btn" class="main-btn">▶ RESUME</button>
-        </div>
-
-        <div id="level-modal" class="hidden overlay-modal">
-            <h2>🎉 LEVEL UP!</h2>
-            <div class="trivia-box">
-                <p id="trivia-text"></p>
-            </div>
-            <button id="continue-btn" class="main-btn">KEEP DASHING</button>
-        </div>
-
-        <div id="game-over-screen" class="hidden overlay-modal">
-            <div id="capture-area">
-                <h1 class="go-title">DASH OVER</h1>
-                <div class="score-card"><span>SCORE</span><span id="final-score">0</span></div>
-                <div class="score-card"><span>BEST</span><span id="best-score">0</span></div>
-            </div>
-            <button id="share-btn" class="main-btn">CHALLENGE FRIENDS 🚀</button>
-            <button id="restart-btn" class="main-btn">PLAY AGAIN 🔄</button>
-            <button id="menu-btn" class="secondary-btn">MAIN MENU</button>
+            <button id="btn-share" class="main-btn">CHALLENGE PEERS 🏆</button>
+            <button id="btn-restart" class="secondary-btn">PLAY AGAIN 🔄</button>
         </div>
 
         <div id="ui-footer">
-            <button id="music-toggle" class="footer-btn">🔊 Sound On</button>
+            <button id="btn-sound" class="mute-btn">🔊 Sound On</button>
         </div>
     </div>
 
+    <div id="game-hud">
+        <div class="hud-top">
+            <div class="stat-pill">👤 <span id="hud-name">Player</span></div>
+            <div class="stat-pill">⭐ <span id="hud-score">0</span></div>
+            <button id="btn-pause" class="pause-btn">||</button>
+        </div>
+        <div id="toast-container"></div>
+    </div>
+
     <canvas id="gameCanvas"></canvas>
-    <script src="script.js"></script>
+
+<script>
+/**
+ * SEAMLESS DASH - OPTIMIZED MOBILE ENGINE
+ * Single File Architecture
+ */
+
+// --- 1. CONFIG & STATE ---
+const C = {
+    gravity: 0, // Top down, no gravity
+    baseSpeed: 5,
+    spawnRate: 0.02,
+    powerupRate: 0.002
+};
+
+let state = {
+    running: false,
+    paused: false,
+    score: 0,
+    level: 1,
+    speed: C.baseSpeed,
+    timeWarp: false,
+    shield: 0, // Shield timer
+    frame: 0
+};
+
+let entities = {
+    player: { x: 0, y: 0, r: 35, targetX: 0, targetY: 0 },
+    enemies: [],
+    items: [], // {x, y, type: 'shield'|'warp', r: 20}
+    particles: []
+};
+
+// Trivia Database
+const TRIVIA = [
+    "Poornata centralizes all HR data securely.",
+    "Seamex ensures 99.9% payroll accuracy.",
+    "Did you know? You can view payslips on the go.",
+    "Time Warp unlocked! Everything moves slower.",
+    "Shield Active! You are invincible.",
+    "Seamex: Powered by Aditya Birla Group."
+];
+
+// --- 2. SETUP & ASSETS ---
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d', { alpha: false }); // Optimize for performance
+let W, H;
+let animId; // To control the loop
+
+const assets = {
+    player: document.getElementById('img-player'),
+    sounds: {
+        bg: new Audio("https://cdn.jsdelivr.net/gh/joshua19881228/free-music-files@master/super-mario-bros-theme.mp3"),
+        coin: new Audio("https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3"), // Level Up
+        die: new Audio("https://assets.mixkit.co/active_storage/sfx/2018/2018-preview.mp3"),
+        powerup: new Audio("https://assets.mixkit.co/active_storage/sfx/1103/1103-preview.mp3")
+    }
+};
+
+// Audio Config
+assets.sounds.bg.loop = true;
+assets.sounds.bg.volume = 0.3;
+let soundEnabled = true;
+
+// Resize Handler
+function resize() {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+    // Reset player position if game not running
+    if (!state.running) {
+        entities.player.x = W / 2;
+        entities.player.y = H * 0.7;
+        entities.player.targetX = W / 2;
+        entities.player.targetY = H * 0.7;
+    }
+}
+window.addEventListener('resize', resize);
+resize();
+
+// --- 3. INPUT HANDLING ---
+const inputs = {
+    name: document.getElementById('inp-name'),
+    id: document.getElementById('inp-id'),
+    startBtn: document.getElementById('btn-start')
+};
+
+function validate() {
+    const nameValid = /^[A-Za-z ]{3,}$/.test(inputs.name.value.trim());
+    const idValid = /^[0-9]{4,10}$/.test(inputs.id.value.trim());
+    
+    document.getElementById('err-name').style.visibility = nameValid ? 'hidden' : 'visible';
+    document.getElementById('err-id').style.visibility = idValid ? 'hidden' : 'visible';
+    
+    inputs.startBtn.disabled = !(nameValid && idValid);
+    return nameValid && idValid;
+}
+
+inputs.name.addEventListener('input', validate);
+inputs.id.addEventListener('input', validate);
+
+// Touch Controls
+canvas.addEventListener('touchstart', handleInput, {passive: false});
+canvas.addEventListener('touchmove', handleInput, {passive: false});
+canvas.addEventListener('mousemove', (e) => {
+    if(e.buttons === 1) handleInput(e);
+});
+
+function handleInput(e) {
+    e.preventDefault();
+    if (!state.running || state.paused) return;
+    
+    // Unlock Audio Context on first touch
+    if(assets.sounds.bg.paused && soundEnabled) assets.sounds.bg.play().catch(()=>{});
+
+    const touch = e.touches ? e.touches[0] : e;
+    entities.player.targetX = touch.clientX;
+    entities.player.targetY = touch.clientY - 50; // Offset so finger doesn't hide char
+}
+
+// --- 4. GAME LOGIC ---
+
+function startGame() {
+    if (!validate()) return;
+    
+    // Save User
+    const user = { name: inputs.name.value, id: inputs.id.value };
+    localStorage.setItem('seamex_user', JSON.stringify(user));
+    
+    // Reset State
+    state = {
+        running: true,
+        paused: false,
+        score: 0,
+        level: 1,
+        speed: C.baseSpeed,
+        timeWarp: false,
+        shield: 0,
+        frame: 0
+    };
+    
+    entities.enemies = [];
+    entities.items = [];
+    entities.particles = [];
+    entities.player.x = W/2;
+    entities.player.y = H*0.7;
+    entities.player.targetX = W/2;
+    entities.player.targetY = H*0.7;
+
+    // UI Update
+    document.body.className = 'state-playing';
+    document.getElementById('hud-name').textContent = user.name;
+    document.getElementById('toast-container').innerHTML = ''; // Clear toasts
+    
+    // Audio
+    if(soundEnabled) {
+        assets.sounds.bg.currentTime = 0;
+        assets.sounds.bg.play().catch(()=>{});
+    }
+
+    // Start Loop
+    if(animId) cancelAnimationFrame(animId);
+    loop();
+}
+
+function endGame() {
+    state.running = false;
+    document.body.className = 'state-gameover';
+    
+    // Audio
+    if(soundEnabled) {
+        assets.sounds.bg.pause();
+        assets.sounds.die.play();
+    }
+    
+    // High Score Logic
+    const currentBest = parseInt(localStorage.getItem('seamex_best') || 0);
+    if(state.score > currentBest) {
+        localStorage.setItem('seamex_best', state.score);
+    }
+    
+    document.getElementById('final-score').textContent = Math.floor(state.score);
+    document.getElementById('best-score').textContent = Math.max(state.score, currentBest);
+}
+
+function spawnEntity() {
+    // Difficulty Scaling
+    const difficultyMod = 1 + (state.level * 0.1);
+    
+    // Spawn Enemy
+    if (Math.random() < C.spawnRate * difficultyMod) {
+        entities.enemies.push({
+            x: Math.random() * W,
+            y: -50,
+            r: 15 + Math.random() * 10,
+            speed: (Math.random() * 2 + 2) * difficultyMod,
+            color: '#A01018'
+        });
+    }
+
+    // Spawn Powerup (Rare)
+    if (Math.random() < C.powerupRate) {
+        const type = Math.random() > 0.5 ? 'shield' : 'warp';
+        entities.items.push({
+            x: Math.random() * W,
+            y: -50,
+            r: 20,
+            type: type
+        });
+    }
+}
+
+function showToast(msg, icon='ℹ️') {
+    const container = document.getElementById('toast-container');
+    const el = document.createElement('div');
+    el.className = 'toast';
+    el.innerHTML = `<span class="toast-icon">${icon}</span><span class="toast-text">${msg}</span>`;
+    container.appendChild(el);
+    // Remove after 3s
+    setTimeout(() => {
+        el.style.animation = 'fadeOut 0.5s forwards';
+        setTimeout(() => el.remove(), 500);
+    }, 3000);
+}
+
+// --- 5. THE LOOP ---
+
+function update() {
+    if (state.paused) return;
+
+    // Movement (Lerp for smoothness)
+    entities.player.x += (entities.player.targetX - entities.player.x) * 0.15;
+    entities.player.y += (entities.player.targetY - entities.player.y) * 0.15;
+
+    // Time Warp Factor
+    const timeScale = state.timeWarp ? 0.4 : 1.0;
+    document.body.classList.toggle('warp-active', state.timeWarp);
+
+    // Timers
+    if (state.shield > 0) state.shield--;
+    if (state.timeWarp && Math.random() < 0.005) state.timeWarp = false; // Randomly ends
+
+    // Score & Level
+    state.score += 0.1;
+    document.getElementById('hud-score').textContent = Math.floor(state.score);
+    
+    if (Math.floor(state.score) % 100 === 0 && Math.floor(state.score) > 0 && state.frame % 60 === 0) {
+        state.level++;
+        if(soundEnabled) assets.sounds.coin.play();
+        showToast(TRIVIA[state.level % TRIVIA.length] || "Keep Dashing!", "🎓");
+    }
+
+    // Update Enemies
+    for (let i = entities.enemies.length - 1; i >= 0; i--) {
+        let e = entities.enemies[i];
+        e.y += (state.speed + e.speed) * timeScale;
+        e.r += 0.05; // Pulse effect
+
+        // Collision Enemy
+        const dx = entities.player.x - e.x;
+        const dy = entities.player.y - e.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        
+        if (dist < entities.player.r + e.r - 10) {
+            if (state.shield > 0) {
+                // Shield destroys enemy
+                entities.enemies.splice(i, 1);
+            } else {
+                endGame();
+                return;
+            }
+        }
+        
+        if (e.y > H + 50) entities.enemies.splice(i, 1);
+    }
+
+    // Update Items
+    for (let i = entities.items.length - 1; i >= 0; i--) {
+        let item = entities.items[i];
+        item.y += state.speed * timeScale;
+        
+        // Collision Item
+        const dx = entities.player.x - item.x;
+        const dy = entities.player.y - item.y;
+        if (Math.sqrt(dx*dx + dy*dy) < entities.player.r + item.r) {
+            if(soundEnabled) assets.sounds.powerup.play();
+            if (item.type === 'shield') {
+                state.shield = 400; // ~6-7 seconds
+                showToast("Shield Activated!", "🛡️");
+            } else {
+                state.timeWarp = true;
+                showToast("Time Warp!", "⏳");
+            }
+            entities.items.splice(i, 1);
+        }
+        
+        if (item.y > H + 50) entities.items.splice(i, 1);
+    }
+
+    state.frame++;
+    spawnEntity();
+}
+
+function draw() {
+    // Clear
+    ctx.fillStyle = '#f0f2f5'; // Clear color
+    ctx.fillRect(0, 0, W, H);
+
+    // Draw Player
+    ctx.save();
+    ctx.translate(entities.player.x, entities.player.y);
+    
+    // Shield Aura
+    if (state.shield > 0) {
+        ctx.beginPath();
+        ctx.arc(0, 0, 50, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(9, 132, 227, ${Math.random()})`;
+        ctx.lineWidth = 4;
+        ctx.stroke();
+    }
+    
+    // Character Image (or Fallback Circle)
+    if (assets.player && assets.player.complete && assets.player.naturalWidth !== 0) {
+        ctx.drawImage(assets.player, -40, -40, 80, 80);
+    } else {
+        ctx.fillStyle = '#333';
+        ctx.beginPath(); ctx.arc(0, 0, 30, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.restore();
+
+    // Draw Enemies
+    entities.enemies.forEach(e => {
+        ctx.fillStyle = e.color;
+        ctx.beginPath();
+        ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2);
+        ctx.fill();
+        // Shine
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        ctx.beginPath(); ctx.arc(e.x - 5, e.y - 5, e.r/3, 0, Math.PI * 2); ctx.fill();
+    });
+
+    // Draw Items
+    entities.items.forEach(item => {
+        ctx.save();
+        ctx.translate(item.x, item.y);
+        if (item.type === 'shield') {
+            ctx.fillStyle = '#0984e3';
+            ctx.beginPath(); ctx.arc(0, 0, 15, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#fff';
+            ctx.font = '20px Arial'; ctx.fillText('🛡️', -10, 6);
+        } else {
+            ctx.fillStyle = '#fdcb6e';
+            ctx.beginPath(); ctx.rect(-15, -15, 30, 30); ctx.fill();
+            ctx.fillStyle = '#fff';
+            ctx.font = '20px Arial'; ctx.fillText('⏳', -10, 6);
+        }
+        ctx.restore();
+    });
+}
+
+function loop() {
+    if (state.running) {
+        update();
+        draw();
+        animId = requestAnimationFrame(loop);
+    }
+}
+
+// --- 6. UI BINDINGS ---
+inputs.startBtn.onclick = startGame;
+
+document.getElementById('btn-restart').onclick = () => {
+    // Reset inputs visually or keep them? Keeping them for flow
+    startGame();
+};
+
+document.getElementById('btn-share').onclick = () => {
+    const text = `I scored ${Math.floor(state.score)} on Seamless Dash! Can you beat me? Powered by Seamex.`;
+    if (navigator.share) {
+        navigator.share({ title: 'Seamless Dash', text: text, url: window.location.href });
+    } else {
+        prompt("Copy this to share:", text);
+    }
+};
+
+const pauseBtn = document.getElementById('btn-pause');
+pauseBtn.onclick = () => {
+    state.paused = !state.paused;
+    pauseBtn.textContent = state.paused ? "▶" : "||";
+};
+
+const soundBtn = document.getElementById('btn-sound');
+soundBtn.onclick = () => {
+    soundEnabled = !soundEnabled;
+    soundBtn.textContent = soundEnabled ? "🔊 Sound On" : "🔇 Sound Off";
+    if(!soundEnabled) assets.sounds.bg.pause();
+    else if(state.running) assets.sounds.bg.play().catch(()=>{});
+};
+
+// Auto-Load previous user
+const savedUser = JSON.parse(localStorage.getItem('seamex_user'));
+if(savedUser) {
+    inputs.name.value = savedUser.name;
+    inputs.id.value = savedUser.id;
+    validate(); // Enable button
+}
+
+</script>
 </body>
 </html>
