@@ -5,16 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Seamless Dash - Seamex</title>
     <style>
-        :root { --red: #A01018; --gold: #FFC107; --blue: #0984e3; --bg: #f0f2f5; }
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: var(--bg); font-family: 'Segoe UI', sans-serif; touch-action: none; transition: background 2s; }
-        canvas { display: block; z-index: 1; width: 100%; height: 100%; }
+        :root { --red: #A01018; --gold: #FFC107; --blue: #0984e3; --text: #333; }
+        
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #f0f2f5; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; touch-action: none; }
+        canvas { display: block; position: absolute; top: 0; left: 0; z-index: 1; width: 100%; height: 100%; }
 
-        /* UI Containers */
+        /* UI Overlays */
         #ui-layer { position: absolute; inset: 0; z-index: 10; pointer-events: none; display: flex; align-items: center; justify-content: center; }
         .screen-box { 
-            background: white; padding: 25px; border-radius: 25px; width: 85%; max-width: 350px; 
-            text-align: center; pointer-events: auto; box-shadow: 0 15px 40px rgba(0,0,0,0.2); 
-            border-top: 8px solid var(--red); display: none; flex-direction: column;
+            background: rgba(255, 255, 255, 0.98); padding: 25px; border-radius: 28px; width: 88%; max-width: 360px; 
+            text-align: center; pointer-events: auto; box-shadow: 0 25px 60px rgba(0,0,0,0.3); 
+            border-top: 10px solid var(--red); display: none; flex-direction: column; max-height: 90vh; overflow-y: auto;
         }
 
         /* State Visibility */
@@ -22,30 +23,42 @@
         body.state-gameover #game-over-screen { display: flex; }
         body.state-playing #game-hud { display: flex !important; }
 
-        /* Typography & Branding */
-        .logo { width: 130px; margin: 0 auto 10px; }
-        .title { color: var(--red); font-size: 24px; font-weight: 900; margin: 0; text-transform: uppercase; }
-        .sub-text { font-size: 11px; color: #888; font-weight: bold; margin-bottom: 15px; }
-        .welcome-msg { background: #f9f9f9; padding: 10px; border-radius: 12px; margin-bottom: 15px; font-size: 14px; }
-
-        /* Inputs & Buttons */
-        input { width: 100%; padding: 14px; border: 2px solid #eee; border-radius: 12px; font-size: 16px; margin-bottom: 10px; box-sizing: border-box; }
+        /* Branding & Text */
+        .logo { width: 140px; margin: 0 auto 10px; }
+        .title { color: var(--red); font-size: 26px; font-weight: 900; margin: 0; text-transform: uppercase; letter-spacing: -1px; }
+        .powered { font-size: 10px; color: #999; font-weight: bold; margin-bottom: 15px; }
+        
+        /* Inputs & Validation */
+        .input-group { margin-bottom: 10px; text-align: left; }
+        input { width: 100%; padding: 14px; border: 2px solid #eee; border-radius: 14px; font-size: 16px; box-sizing: border-box; transition: 0.3s; }
         input:focus { border-color: var(--gold); outline: none; }
-        .main-btn { background: linear-gradient(135deg, var(--gold), var(--red)); color: white; border: none; padding: 16px; border-radius: 50px; font-weight: 800; width: 100%; cursor: pointer; font-size: 15px; }
-        .main-btn:disabled { opacity: 0.5; }
-        .change-user-btn { background: none; border: none; color: var(--red); font-size: 12px; font-weight: bold; cursor: pointer; margin-top: 10px; text-decoration: underline; }
+        .err-msg { color: var(--red); font-size: 11px; font-weight: bold; height: 14px; margin-top: 2px; visibility: hidden; }
+
+        /* Buttons */
+        .main-btn { background: linear-gradient(135deg, var(--gold), var(--red)); color: white; border: none; padding: 16px; border-radius: 50px; font-weight: 800; width: 100%; cursor: pointer; font-size: 16px; box-shadow: 0 5px 15px rgba(160,16,24,0.3); }
+        .main-btn:disabled { opacity: 0.5; filter: grayscale(1); }
+        .text-btn { background: none; border: none; color: var(--red); font-weight: 700; cursor: pointer; margin-top: 10px; font-size: 13px; text-decoration: underline; }
+
+        /* Leaderboard */
+        .leaderboard { background: #f8f9fa; border-radius: 18px; padding: 15px; margin: 15px 0; border: 1px solid #eee; }
+        .lb-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; font-size: 14px; font-weight: 600; }
+        .lb-row:last-child { border: none; }
 
         /* HUD */
         #game-hud { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; pointer-events: none; z-index: 5; }
-        .hud-item { background: rgba(255,255,255,0.9); padding: 8px 15px; border-radius: 20px; font-weight: 800; color: var(--red); font-size: 14px; border: 1px solid #eee; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        .hud-top { position: absolute; top: 15px; width: 90%; left: 5%; display: flex; justify-content: space-between; }
-
-        /* Toast */
-        #toast { position: absolute; top: 80px; left: 50%; transform: translateX(-50%); background: var(--gold); color: white; padding: 10px 20px; border-radius: 30px; font-weight: bold; display: none; z-index: 100; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .hud-top { position: absolute; top: 15px; width: 92%; left: 4%; display: flex; justify-content: space-between; }
+        .stat-pill { background: rgba(255,255,255,0.9); padding: 8px 15px; border-radius: 20px; font-weight: 800; color: var(--red); font-size: 13px; border: 1px solid #eee; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
 
         /* Instructions */
-        .instr-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 15px 0; font-size: 12px; text-align: left; }
-        .instr-item { display: flex; align-items: center; gap: 5px; font-weight: 600; }
+        .how-to { text-align: left; background: #fffdf5; padding: 15px; border-radius: 15px; margin: 15px 0; border: 1px solid #f0e6cc; }
+        .how-item { display: flex; align-items: center; gap: 10px; font-size: 13px; margin-bottom: 6px; font-weight: 600; }
+
+        /* Toggle */
+        .sound-toggle { margin: 10px 0; font-weight: bold; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; }
+
+        /* Toast */
+        #game-toast { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.7); color: white; padding: 15px 30px; border-radius: 50px; font-weight: 800; display: none; z-index: 100; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
     </style>
 </head>
 <body class="state-menu">
@@ -61,280 +74,349 @@
         <div id="start-screen" class="screen-box">
             <img src="NEW Seamex logo.png" class="logo">
             <h1 class="title">Seamless Dash</h1>
-            <p class="sub-text">POWERED BY SEAMEX</p>
+            <p class="powered">POWERED BY SEAMEX</p>
 
-            <div id="user-display" style="display:none;">
-                <div class="welcome-msg">Welcome back, <strong id="user-name-tag"></strong></div>
+            <div id="welcome-back" style="display:none;">
+                <div style="background:#f0f7ff; padding:12px; border-radius:15px; margin-bottom:15px; font-size:14px;">
+                    Welcome, <strong id="display-name"></strong>
+                </div>
                 <button class="main-btn" id="btn-quick-start">START DASHING</button>
-                <button class="change-user-btn" id="btn-change-user"></button>
+                <button class="text-btn" id="btn-switch-user">Not you? Change User</button>
             </div>
 
             <div id="login-form">
-                <input type="text" id="inp-name" placeholder="Name (Letters only)">
-                <input type="tel" id="inp-id" placeholder="Poornata ID (Numbers only)">
-                <div class="instr-grid">
-                    <div class="instr-item"><img src="icons8-virus-60.png" width="20"> Avoid Viruses</div>
-                    <div class="instr-item"><img src="sheild.png" width="20"> Get Shield</div>
+                <div class="input-group">
+                    <input type="text" id="inp-name" placeholder="Full Name">
+                    <div id="err-name" class="err-msg">Letters only (min 3)</div>
                 </div>
-                <button id="btn-login-start" class="main-btn" disabled>LOGIN & PLAY</button>
+                <div class="input-group">
+                    <input type="tel" id="inp-id" placeholder="Poornata ID">
+                    <div id="err-id" class="err-msg">Numbers only (4-10 digits)</div>
+                </div>
+                <button id="btn-login-start" class="main-btn" disabled>LOGIN & START</button>
+            </div>
+
+            <div class="how-to">
+                <div class="how-item">👆 <strong>Touch & Hold:</strong> To fly / start</div>
+                <div class="how-item">✋ <strong>Lift Finger:</strong> Game Over</div>
+                <div class="how-item">🛡️ <strong>Shield:</strong> Invincibility</div>
+            </div>
+
+            <div class="sound-toggle" id="toggle-sound">🔊 Music: ON</div>
+
+            <div class="leaderboard" id="menu-lb">
+                <div style="font-size:11px; color:#999; text-transform:uppercase; margin-bottom:5px;">Top Dashers</div>
+                <div id="menu-lb-list"></div>
             </div>
         </div>
 
         <div id="game-over-screen" class="screen-box">
             <h1 class="title">Dash Over</h1>
-            <div id="trivia-box" style="background:#fff9e6; padding:15px; border-radius:15px; margin:15px 0; font-size:13px; font-style:italic;"></div>
-            <button id="btn-restart" class="main-btn">TRY AGAIN</button>
-            <button id="btn-home" class="change-user-btn" style="text-decoration:none">Back to Menu</button>
+            <div id="trivia-box" style="background:#fff9e6; padding:15px; border-radius:15px; margin:15px 0; font-size:14px; font-style:italic; line-height:1.4;"></div>
+            
+            <div class="leaderboard">
+                <div style="font-size:11px; color:#999; text-transform:uppercase; margin-bottom:5px;">All-Time Records</div>
+                <div id="death-lb-list"></div>
+            </div>
+
+            <button id="btn-restart" class="main-btn">DASH AGAIN</button>
+            <button id="btn-main-menu" class="text-btn" style="text-decoration:none">Back to Login</button>
         </div>
     </div>
 
     <div id="game-hud">
         <div class="hud-top">
-            <div class="hud-item">⭐ <span id="val-score">0</span></div>
-            <div class="hud-item">🏆 <span id="val-best">0</span></div>
+            <div class="stat-pill">⭐ <span id="val-score">0</span></div>
+            <div class="stat-pill">LVL <span id="val-lvl">1</span></div>
+            <div class="stat-pill">🚩 <span id="val-best">0</span></div>
         </div>
-        <div id="toast">Place finger to start</div>
+        <div id="game-toast">PLACE FINGER TO START</div>
     </div>
 
     <canvas id="gameCanvas"></canvas>
 
 <script>
-    /**
-     * SEAMLESS DASH V3.1
-     * Fixes: Validation, Start Mechanic, Audio Assets
-     */
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d', { alpha: false });
     let W, H, animId;
 
-    const state = {
+    const STATE = {
         phase: 'MENU', // MENU, READY, PLAYING, GAMEOVER
         score: 0, highscore: 0, level: 1,
-        shield: 0, warp: 0,
-        currentUser: null,
-        bgIndex: 0
+        shield: 0, 
+        user: null,
+        sound: true,
+        bgR: 240, bgG: 242, bgB: 245,
+        targetBg: { r:240, g:242, b:245 }
     };
 
-    const BG_PALETTE = ['#f0f2f5', '#e3f2fd', '#fff3e0', '#f3e5f5', '#e8f5e9'];
-    const TRIVIA = [
-        "Poornata streamlines HR tasks for everyone.",
-        "A Shield makes you invincible for 8 seconds.",
-        "Dodge viruses to maintain your Seamex streak.",
-        "Your highest score is saved on this device!"
+    const PALETTE = [
+        {r:240, g:242, b:245}, // Default
+        {r:227, g:242, b:253}, // Blueish
+        {r:255, g:243, b:224}, // Goldish
+        {r:243, g:229, b:245}, // Purpleish
+        {r:232, g:245, b:233}  // Greenish
     ];
 
-    // Audio Setup
+    const TRIVIA = [
+        "Shields protect you from one virus hit and last 8 seconds.",
+        "Your dash speed increases every 100 points. Stay sharp!",
+        "Lifting your finger ends the session immediately. Focus!",
+        "Poornata: Your seamless gateway to ABG digital HR.",
+        "Seamex enables employee delight through agile technology."
+    ];
+
     const audio = {
         bgm: new Audio('bgm.mp3'),
         die: new Audio('Die.mp3'),
         lvl: new Audio('levelup.mp3'),
         pwr: new Audio('powerup.mp3')
     };
-    audio.bgm.loop = true; audio.bgm.volume = 0.4;
+    audio.bgm.loop = true;
 
-    let entities = { player: { x:0, y:0, r:45, tx:0, ty:0 }, enemies: [], items: [], clouds: [] };
+    let entities = { player: { x:0, y:0, r:48, tx:0, ty:0 }, enemies: [], items: [], clouds: [] };
 
     function resize() {
         W = canvas.width = window.innerWidth;
         H = canvas.height = window.innerHeight;
-        if(state.phase === 'MENU') { entities.player.x = W/2; entities.player.y = H*0.8; }
-        entities.clouds = Array.from({length:5}, () => ({x:Math.random()*W, y:Math.random()*H, s:0.5+Math.random()}));
+        entities.clouds = Array.from({length: 6}, () => ({
+            x: Math.random()*W, y: Math.random()*H, 
+            s: 0.4 + Math.random()*0.8, w: 80 + Math.random()*80 
+        }));
     }
     window.onresize = resize; resize();
 
-    // Validation
+    // --- LOGIC: Validation ---
     const nameIn = document.getElementById('inp-name');
     const idIn = document.getElementById('inp-id');
     const loginBtn = document.getElementById('btn-login-start');
 
     function validate() {
-        const nameVal = /^[A-Za-z\s]{3,}$/.test(nameIn.value.trim());
-        const idVal = /^[0-9]{4,10}$/.test(idIn.value.trim());
-        loginBtn.disabled = !(nameVal && idVal);
+        const nv = /^[A-Za-z\s]{3,}$/.test(nameIn.value.trim());
+        const iv = /^[0-9]{4,10}$/.test(idIn.value.trim());
+        document.getElementById('err-name').style.visibility = nv || nameIn.value=="" ? 'hidden' : 'visible';
+        document.getElementById('err-id').style.visibility = iv || idIn.value=="" ? 'hidden' : 'visible';
+        loginBtn.disabled = !(nv && iv);
     }
     nameIn.oninput = idIn.oninput = validate;
 
-    // User Management
+    // --- LOGIC: Leaderboard & User ---
+    function updateLeaderboards() {
+        const lb = JSON.parse(localStorage.getItem('seamex_global_lb') || '[]');
+        const html = lb.slice(0, 5).map((entry, i) => `
+            <div class="lb-row"><span>#${i+1} ${entry.name}</span><strong>${entry.score}</strong></div>
+        `).join('') || '<div style="font-size:12px; color:#999; padding:10px;">No scores yet. Be the first!</div>';
+        document.getElementById('menu-lb-list').innerHTML = html;
+        document.getElementById('death-lb-list').innerHTML = html;
+    }
+
+    function saveScore() {
+        let lb = JSON.parse(localStorage.getItem('seamex_global_lb') || '[]');
+        lb.push({ name: STATE.user.name, score: Math.floor(STATE.score) });
+        lb.sort((a,b) => b.score - a.score);
+        localStorage.setItem('seamex_global_lb', JSON.stringify(lb.slice(0, 10)));
+        if(STATE.score > STATE.highscore) {
+            localStorage.setItem('seamex_hs_' + STATE.user.id, Math.floor(STATE.score));
+        }
+    }
+
     function initApp() {
-        const saved = localStorage.getItem('seamex_user');
+        const saved = localStorage.getItem('seamex_active_user');
         if(saved) {
-            state.currentUser = JSON.parse(saved);
-            document.getElementById('user-name-tag').textContent = state.currentUser.name;
-            document.getElementById('btn-change-user').textContent = `Not ${state.currentUser.name}? Change User`;
-            document.getElementById('user-display').style.display = 'block';
+            STATE.user = JSON.parse(saved);
+            document.getElementById('display-name').textContent = STATE.user.name;
+            document.getElementById('welcome-back').style.display = 'block';
             document.getElementById('login-form').style.display = 'none';
         }
+        updateLeaderboards();
     }
     initApp();
 
-    document.getElementById('btn-change-user').onclick = () => {
-        localStorage.removeItem('seamex_user');
+    document.getElementById('btn-switch-user').onclick = () => {
+        localStorage.removeItem('seamex_active_user');
         location.reload();
     };
 
+    // --- GAME ENGINE ---
     function startReady() {
-        if(state.currentUser === null) {
-            state.currentUser = { name: nameIn.value.trim(), id: idIn.value.trim() };
-            localStorage.setItem('seamex_user', JSON.stringify(state.currentUser));
+        if(!STATE.user) {
+            STATE.user = { name: nameIn.value.trim(), id: idIn.value.trim() };
+            localStorage.setItem('seamex_active_user', JSON.stringify(STATE.user));
         }
-        state.highscore = localStorage.getItem('seamex_hs_'+state.currentUser.id) || 0;
-        document.getElementById('val-best').textContent = state.highscore;
+        STATE.highscore = localStorage.getItem('seamex_hs_' + STATE.user.id) || 0;
+        document.getElementById('val-best').textContent = STATE.highscore;
         
-        state.phase = 'READY';
-        state.score = 0; state.level = 1; state.shield = 0;
+        STATE.phase = 'READY';
+        STATE.score = 0; STATE.level = 1; STATE.shield = 0;
         entities.enemies = []; entities.items = [];
-        
+        entities.player.x = W/2; entities.player.y = H*0.75;
+
         document.body.className = 'state-playing';
-        document.getElementById('toast').style.display = 'block';
-        if(animId) cancelAnimationFrame(animId);
-        loop();
-    }
-
-    document.getElementById('btn-login-start').onclick = startReady;
-    document.getElementById('btn-quick-start').onclick = startReady;
-    document.getElementById('btn-restart').onclick = startReady;
-    document.getElementById('btn-home').onclick = () => location.reload();
-
-    // Game Input
-    const onDown = (e) => {
-        if(state.phase === 'READY') {
-            state.phase = 'PLAYING';
-            document.getElementById('toast').style.display = 'none';
-            audio.bgm.play().catch(()=>{});
-        }
-        updateTarget(e);
-    };
-
-    const onUp = () => {
-        if(state.phase === 'PLAYING') endGame();
-    };
-
-    const updateTarget = (e) => {
-        const t = e.touches ? e.touches[0] : e;
-        entities.player.tx = t.clientX;
-        entities.player.ty = t.clientY - 65; // Offset for finger
-    };
-
-    canvas.addEventListener('touchstart', (e) => { e.preventDefault(); onDown(e); });
-    canvas.addEventListener('touchmove', (e) => { e.preventDefault(); updateTarget(e); });
-    canvas.addEventListener('touchend', onUp);
-    canvas.addEventListener('mousedown', onDown);
-    canvas.addEventListener('mouseup', onUp);
-
-    function spawn() {
-        if(state.phase !== 'PLAYING') return;
-        const rate = 0.015 + (Math.min(state.level, 10) * 0.005);
-        if(Math.random() < rate) {
-            entities.enemies.push({
-                x: Math.random()*W, y: -50, r: 20+Math.random()*25, 
-                s: 3 + Math.random()*3 + (state.level*0.3),
-                img: Math.random() > 0.5 ? document.getElementById('asset-v1') : document.getElementById('asset-v2'),
-                rot: Math.random()*Math.PI*2, rs: (Math.random()-0.5)*0.1
-            });
-        }
-        if(Math.random() < 0.004) {
-            entities.items.push({ x: Math.random()*W, y: -50, type: 'shield' });
-        }
+        document.getElementById('game-toast').style.display = 'block';
+        if(!animId) loop();
     }
 
     function endGame() {
-        state.phase = 'GAMEOVER';
+        if(STATE.phase !== 'PLAYING') return;
+        STATE.phase = 'GAMEOVER';
         audio.bgm.pause();
-        audio.die.play();
-        if(state.score > state.highscore) {
-            localStorage.setItem('seamex_hs_'+state.currentUser.id, Math.floor(state.score));
-        }
+        if(STATE.sound) audio.die.play();
+        saveScore();
+        updateLeaderboards();
         document.getElementById('trivia-box').textContent = TRIVIA[Math.floor(Math.random()*TRIVIA.length)];
         document.body.className = 'state-gameover';
     }
 
+    // Input Handling
+    const handleDown = (e) => {
+        if(STATE.phase === 'READY') {
+            STATE.phase = 'PLAYING';
+            document.getElementById('game-toast').style.display = 'none';
+            if(STATE.sound) audio.bgm.play().catch(()=>{});
+        }
+        updateTarget(e);
+    };
+    const handleMove = (e) => { if(STATE.phase === 'PLAYING') updateTarget(e); };
+    const handleUp = () => { if(STATE.phase === 'PLAYING') endGame(); };
+
+    function updateTarget(e) {
+        const t = e.touches ? e.touches[0] : e;
+        entities.player.tx = t.clientX;
+        entities.player.ty = t.clientY - 70; // Ergonomic offset
+    }
+
+    canvas.addEventListener('touchstart', (e) => { e.preventDefault(); handleDown(e); });
+    canvas.addEventListener('touchmove', (e) => { e.preventDefault(); handleMove(e); });
+    canvas.addEventListener('touchend', (e) => { e.preventDefault(); handleUp(); });
+    canvas.addEventListener('mousedown', handleDown);
+    canvas.addEventListener('mousemove', handleMove);
+    canvas.addEventListener('mouseup', handleUp);
+
+    function spawn() {
+        if(STATE.phase !== 'PLAYING') return;
+        const rate = 0.012 + (Math.min(STATE.level, 10) * 0.006);
+        if(Math.random() < rate) {
+            entities.enemies.push({
+                x: Math.random()*W, y: -60, r: 22 + Math.random()*25,
+                s: 3 + Math.random()*3 + (STATE.level * 0.35),
+                img: Math.random() > 0.5 ? document.getElementById('asset-v1') : document.getElementById('asset-v2'),
+                rot: Math.random()*Math.PI*2, rs: (Math.random()-0.5)*0.12
+            });
+        }
+        if(Math.random() < 0.0035) {
+            entities.items.push({ x: Math.random()*W, y: -60, r:30 });
+        }
+    }
+
     function update() {
-        if(state.phase === 'READY') {
-            // Hover effect while waiting
-            entities.player.x = W/2 + Math.sin(Date.now()*0.005)*10;
-            entities.player.y = H*0.7;
+        if(STATE.phase === 'READY') {
+            // Idle hover effect
+            entities.player.x = W/2 + Math.sin(Date.now()*0.004)*15;
+            entities.player.y = H*0.75 + Math.cos(Date.now()*0.003)*10;
             return;
         }
-        if(state.phase !== 'PLAYING') return;
+        if(STATE.phase !== 'PLAYING') return;
 
-        state.score += 0.15;
-        document.getElementById('val-score').textContent = Math.floor(state.score);
+        STATE.score += 0.15;
+        document.getElementById('val-score').textContent = Math.floor(STATE.score);
+        document.getElementById('val-lvl').textContent = STATE.level;
 
-        // Background Shift
-        const newIdx = Math.floor(state.score / 80) % BG_PALETTE.length;
-        if(newIdx !== state.bgIndex) {
-            state.bgIndex = newIdx;
-            document.body.style.background = BG_PALETTE[newIdx];
-        }
+        // Background Subtle Color Lerp
+        const pIdx = Math.floor(STATE.score / 80) % PALETTE.length;
+        STATE.targetBg = PALETTE[pIdx];
+        STATE.bgR += (STATE.targetBg.r - STATE.bgR) * 0.01;
+        STATE.bgG += (STATE.targetBg.g - STATE.bgG) * 0.01;
+        STATE.bgB += (STATE.targetBg.b - STATE.bgB) * 0.01;
 
         // Level Up
-        if(Math.floor(state.score) > 0 && Math.floor(state.score) % 100 === 0 && state.score % 1 < 0.2) {
-            state.level++;
-            audio.lvl.play();
+        if(Math.floor(STATE.score) > 0 && Math.floor(STATE.score) % 100 === 0 && STATE.score % 1 < 0.16) {
+            STATE.level++;
+            if(STATE.sound) audio.lvl.play();
         }
 
-        // Smooth Movement
-        entities.player.x += (entities.player.tx - entities.player.x) * 0.2;
-        entities.player.y += (entities.player.ty - entities.player.y) * 0.2;
+        // Movement
+        entities.player.x += (entities.player.tx - entities.player.x) * 0.22;
+        entities.player.y += (entities.player.ty - entities.player.y) * 0.22;
 
-        if(state.shield > 0) state.shield--;
+        if(STATE.shield > 0) STATE.shield--;
+
+        // Clouds
+        entities.clouds.forEach(c => {
+            c.y += c.s; if(c.y > H + 50) { c.y = -60; c.x = Math.random()*W; }
+        });
 
         // Enemies
         for(let i=entities.enemies.length-1; i>=0; i--) {
             let e = entities.enemies[i];
             e.y += e.s; e.rot += e.rs;
-            const dist = Math.hypot(entities.player.x - e.x, entities.player.y - e.y);
-            if(dist < entities.player.r + e.r - 10) {
-                if(state.shield > 0) entities.enemies.splice(i,1);
+            const d = Math.hypot(entities.player.x - e.x, entities.player.y - e.y);
+            if(d < entities.player.r + e.r - 12) {
+                if(STATE.shield > 0) { entities.enemies.splice(i, 1); STATE.shield = 0; }
                 else { endGame(); return; }
             }
-            if(e.y > H + 100) entities.enemies.splice(i,1);
+            if(e.y > H + 100) entities.enemies.splice(i, 1);
         }
 
         // Items
         for(let i=entities.items.length-1; i>=0; i--) {
             let it = entities.items[i];
             it.y += 4;
-            if(Math.hypot(entities.player.x - it.x, entities.player.y - it.y) < 60) {
-                state.shield = 480;
-                audio.pwr.play();
-                entities.items.splice(i,1);
+            if(Math.hypot(entities.player.x - it.x, entities.player.y - it.y) < 65) {
+                STATE.shield = 480; // 8 seconds
+                if(STATE.sound) audio.pwr.play();
+                entities.items.splice(i, 1);
             }
+            if(it.y > H + 100) entities.items.splice(i, 1);
         }
-        
-        entities.clouds.forEach(c => { c.y += c.s; if(c.y > H) c.y = -50; });
+
         spawn();
     }
 
     function draw() {
-        ctx.fillStyle = getComputedStyle(document.body).background;
+        // High Performance Clear
+        ctx.fillStyle = `rgb(${STATE.bgR}, ${STATE.bgG}, ${STATE.bgB})`;
         ctx.fillRect(0,0,W,H);
 
         // Clouds
-        ctx.fillStyle = 'rgba(255,255,255,0.4)';
-        entities.clouds.forEach(c => { ctx.beginPath(); ctx.arc(c.x, c.y, 40, 0, Math.PI*2); ctx.fill(); });
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        entities.clouds.forEach(c => {
+            ctx.beginPath(); ctx.ellipse(c.x, c.y, c.w/2, 25, 0, 0, Math.PI*2); ctx.fill();
+        });
+
+        // High Score Line
+        if(STATE.highscore > 0) {
+            ctx.strokeStyle = 'rgba(160, 16, 24, 0.2)';
+            ctx.setLineDash([15, 10]);
+            const lineY = H/2 + (STATE.highscore - STATE.score) * 5;
+            if(lineY > 0 && lineY < H) {
+                ctx.beginPath(); ctx.moveTo(0, lineY); ctx.lineTo(W, lineY); ctx.stroke();
+                ctx.fillStyle = 'rgba(160, 16, 24, 0.4)';
+                ctx.font = "bold 10px Arial";
+                ctx.fillText("BEST RECORD LINE", 10, lineY - 5);
+            }
+            ctx.setLineDash([]);
+        }
+
+        // Items
+        entities.items.forEach(it => {
+            ctx.drawImage(document.getElementById('asset-shield'), it.x-30, it.y-30, 60, 60);
+        });
 
         // Enemies
         entities.enemies.forEach(e => {
             ctx.save();
-            ctx.translate(e.x, e.y);
-            ctx.rotate(e.rot);
+            ctx.translate(e.x, e.y); ctx.rotate(e.rot);
             ctx.drawImage(e.img, -e.r, -e.r, e.r*2, e.r*2);
             ctx.restore();
         });
 
-        // Items
-        entities.items.forEach(it => {
-            ctx.drawImage(document.getElementById('asset-shield'), it.x-25, it.y-25, 50, 50);
-        });
-
         // Player
         ctx.save();
-        if(state.shield > 0) {
-            ctx.beginPath(); ctx.arc(entities.player.x, entities.player.y, 55, 0, Math.PI*2);
-            ctx.strokeStyle = '#0984e3'; ctx.lineWidth = 5; ctx.stroke();
+        if(STATE.shield > 0) {
+            ctx.beginPath(); ctx.arc(entities.player.x, entities.player.y, 62, 0, Math.PI*2);
+            ctx.strokeStyle = '#0984e3'; ctx.lineWidth = 6; ctx.stroke();
         }
-        ctx.drawImage(document.getElementById('asset-player'), entities.player.x-45, entities.player.y-45, 90, 90);
+        ctx.drawImage(document.getElementById('asset-player'), entities.player.x-48, entities.player.y-48, 96, 96);
         ctx.restore();
     }
 
@@ -343,6 +425,18 @@
         draw();
         animId = requestAnimationFrame(loop);
     }
+
+    // --- UI LISTENERS ---
+    document.getElementById('btn-login-start').onclick = startReady;
+    document.getElementById('btn-quick-start').onclick = startReady;
+    document.getElementById('btn-restart').onclick = startReady;
+    document.getElementById('btn-main-menu').onclick = () => { location.reload(); };
+
+    document.getElementById('toggle-sound').onclick = () => {
+        STATE.sound = !STATE.sound;
+        document.getElementById('toggle-sound').textContent = STATE.sound ? "🔊 Music: ON" : "🔇 Music: OFF";
+        if(!STATE.sound) audio.bgm.pause();
+    };
 
     loop();
 </script>
