@@ -5,171 +5,108 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Seamless Dash - Seamex</title>
     <style>
-        :root { --red: #A01018; --gold: #FFC107; --blue: #0984e3; }
+        :root { --red: #A01018; --gold: #FFC107; --blue: #0984e3; --bg-current: #f0f2f5; }
         
-        /* Core Reset & Fonts */
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #f0f2f5; font-family: 'Segoe UI', system-ui, sans-serif; touch-action: none; user-select: none; -webkit-user-select: none; }
-        
-        /* Canvas Layer */
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: var(--bg-current); font-family: 'Segoe UI', system-ui, sans-serif; touch-action: none; transition: background-color 2s ease; }
         canvas { display: block; position: absolute; top: 0; left: 0; z-index: 1; width: 100%; height: 100%; }
-        
-        /* UI Layer - Controlled by Body Classes */
-        #ui-layer { position: absolute; inset: 0; z-index: 10; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        
-        /* State Management Utility Classes */
-        .hidden { display: none !important; }
-        body.state-playing #start-screen, 
-        body.state-playing #game-over-screen,
-        body.state-playing #ui-footer { display: none !important; }
-        body.state-playing #game-hud { display: flex !important; }
-        
-        /* Screens (Start / Game Over) */
+
+        /* UI State Control */
+        #ui-layer { position: absolute; inset: 0; z-index: 10; pointer-events: none; display: flex; align-items: center; justify-content: center; }
         .screen-box { 
-            background: white; padding: 25px; border-radius: 20px; width: 85%; max-width: 350px; 
+            background: white; padding: 20px; border-radius: 20px; width: 85%; max-width: 340px; 
             text-align: center; pointer-events: auto; box-shadow: 0 15px 40px rgba(0,0,0,0.2); 
-            border-top: 8px solid var(--red); animation: popIn 0.3s ease-out;
-            position: relative; z-index: 20;
+            border-top: 8px solid var(--red); display: none; flex-direction: column;
         }
 
-        /* Branding */
-        .responsive-logo { width: 140px; height: auto; margin: 10px auto; display: block; }
-        .game-title { color: var(--red); font-size: 26px; font-weight: 900; margin: 0; letter-spacing: -1px; text-transform: uppercase; }
-        .powered-text { font-size: 10px; color: #888; font-weight: bold; margin-bottom: 5px; letter-spacing: 1px; }
+        body.state-menu #start-screen { display: flex; }
+        body.state-paused #pause-screen { display: flex; }
+        body.state-gameover #game-over-screen { display: flex; }
+        body.state-playing #game-hud { display: flex !important; }
 
-        /* Forms & Inputs */
-        .input-group { margin-bottom: 15px; text-align: left; }
-        input { 
-            width: 100%; padding: 14px; border: 2px solid #eee; border-radius: 12px; 
-            font-size: 16px; box-sizing: border-box; outline: none; transition: border-color 0.3s;
-        }
-        input:focus { border-color: var(--red); }
-        .val-err { color: var(--red); font-size: 11px; font-weight: bold; margin-top: 4px; display: block; min-height: 15px; visibility: hidden; }
-        
+        /* Branding & Text */
+        .responsive-logo { width: 130px; height: auto; margin: 5px auto; display: block; }
+        .game-title { color: var(--red); font-size: 24px; font-weight: 900; margin: 0; text-transform: uppercase; }
+        .powered-text { font-size: 10px; color: #888; font-weight: bold; margin-bottom: 5px; }
+
+        /* Inputs */
+        .input-group { margin-bottom: 12px; text-align: left; }
+        input { width: 100%; padding: 12px; border: 2px solid #eee; border-radius: 12px; font-size: 16px; box-sizing: border-box; }
+        .val-err { color: var(--red); font-size: 11px; font-weight: bold; visibility: hidden; height: 12px; }
+
         /* Buttons */
         .main-btn, .secondary-btn { 
             background: linear-gradient(135deg, var(--gold), var(--red)); color: white; border: none; 
-            padding: 16px; border-radius: 50px; font-weight: 800; width: 100%; cursor: pointer; 
-            margin-top: 10px; font-size: 16px; box-shadow: 0 5px 15px rgba(160, 16, 24, 0.3); 
-            transition: transform 0.1s; text-transform: uppercase; letter-spacing: 0.5px;
+            padding: 14px; border-radius: 50px; font-weight: 800; width: 100%; cursor: pointer; 
+            margin-top: 8px; font-size: 15px; text-transform: uppercase; box-shadow: 0 4px 12px rgba(160,16,24,0.3);
         }
-        .main-btn:active { transform: scale(0.96); }
-        .main-btn:disabled { opacity: 0.5; filter: grayscale(1); cursor: not-allowed; }
-        .secondary-btn { background: #fff; border: 2px solid #eee; color: #555; box-shadow: none; font-size: 14px; padding: 12px; }
+        .secondary-btn { background: #fff; border: 2px solid #ddd; color: #444; box-shadow: none; }
 
-        /* Game HUD */
-        #game-hud { 
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-            display: none; flex-direction: column; align-items: center; z-index: 5; pointer-events: none;
-        }
-        .hud-top { 
-            position: absolute; top: 15px; width: 92%; display: flex; 
-            justify-content: space-between; align-items: center; pointer-events: none; 
-        }
-        .stat-pill { 
-            background: rgba(255,255,255,0.9); padding: 8px 12px; border-radius: 20px; 
-            font-weight: 800; color: var(--red); box-shadow: 0 2px 8px rgba(0,0,0,0.1); 
-            font-size: 14px; border: 1px solid #eee; 
-        }
-        .pause-btn { 
-            background: white; color: var(--red); border: 2px solid var(--red); width: 40px; height: 40px; 
-            border-radius: 50%; font-weight: bold; font-size: 18px; pointer-events: auto; display: grid; place-items: center;
-        }
+        /* HUD */
+        #game-hud { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; flex-direction: column; align-items: center; pointer-events: none; z-index: 5; }
+        .hud-top { position: absolute; top: 15px; width: 92%; display: flex; justify-content: space-between; align-items: center; pointer-events: none; }
+        .stat-pill { background: rgba(255,255,255,0.9); padding: 6px 12px; border-radius: 20px; font-weight: 800; color: var(--red); font-size: 13px; border: 1px solid #eee; }
+        .pause-btn { background: white; color: var(--red); border: 2px solid var(--red); width: 38px; height: 38px; border-radius: 50%; pointer-events: auto; }
 
-        /* Notifications (Seamless Toast) */
-        #toast-container {
-            position: absolute; top: 80px; left: 50%; transform: translateX(-50%);
-            width: 90%; max-width: 400px; z-index: 100; pointer-events: none;
-        }
-        .toast {
-            background: rgba(255, 255, 255, 0.95); padding: 15px; border-radius: 12px; margin-bottom: 10px;
-            border-left: 5px solid var(--gold); box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-            animation: slideDown 0.5s ease-out forwards; display: flex; align-items: center; gap: 10px;
-        }
-        .toast-icon { font-size: 20px; }
-        .toast-text { font-size: 13px; color: #333; font-weight: 600; line-height: 1.3; text-align: left; }
+        /* Leaderboard */
+        .leaderboard { margin: 15px 0; background: #f9f9f9; border-radius: 12px; padding: 10px; font-size: 12px; }
+        .lb-row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #eee; }
+        .lb-row:last-child { border: none; }
+        .lb-rank { font-weight: bold; color: var(--gold); margin-right: 5px; }
 
-        /* Game Over Stats */
-        .score-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 15px 0; }
-        .stat-box { background: #f9f9f9; padding: 10px; border-radius: 10px; border: 1px solid #eee; }
-        .stat-label { font-size: 10px; color: #888; font-weight: bold; text-transform: uppercase; }
-        .stat-val { font-size: 24px; color: var(--red); font-weight: 900; }
+        /* Toast Notifications */
+        #toast-container { position: absolute; top: 75px; width: 85%; z-index: 100; pointer-events: none; }
+        .toast { background: white; padding: 12px; border-radius: 10px; border-left: 5px solid var(--gold); box-shadow: 0 5px 15px rgba(0,0,0,0.1); margin-bottom: 8px; animation: slideIn 0.4s ease-out; font-size: 12px; font-weight: 600; }
 
-        /* Instructions */
-        .how-to { background: #fafafa; padding: 10px; border-radius: 10px; margin-top: 15px; text-align: left; font-size: 12px; color: #555; }
-        .how-row { display: flex; align-items: center; margin-bottom: 5px; }
-        .how-row span { font-size: 16px; margin-right: 8px; width: 20px; text-align: center; }
+        /* Trivia Box in Modals */
+        .trivia-box { background: #fff9e6; padding: 12px; border-radius: 10px; margin: 10px 0; font-size: 13px; color: #555; font-style: italic; border-left: 4px solid var(--gold); }
 
-        /* Visual FX */
-        @keyframes popIn { 0% { transform: scale(0.9); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
-        @keyframes slideDown { 0% { transform: translateY(-20px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
-        @keyframes fadeOut { 0% { opacity: 1; } 100% { opacity: 0; } }
-        
-        .warp-active canvas { filter: sepia(1) hue-rotate(190deg) saturate(2); transition: filter 0.5s; }
-        
-        #ui-footer { position: fixed; bottom: 20px; left: 20px; z-index: 50; pointer-events: auto; }
-        .mute-btn { background: rgba(0,0,0,0.6); color: white; padding: 8px 15px; border-radius: 20px; font-size: 12px; border: none; cursor: pointer; }
-
+        @keyframes slideIn { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
     </style>
 </head>
 <body class="state-menu">
 
     <div style="display:none;">
         <img id="img-player" src="character.png" alt="Player">
-        </div>
+    </div>
 
     <div id="ui-layer">
-        
         <div id="start-screen" class="screen-box">
+            <img src="NEW Seamex logo.png" alt="Seamex" class="responsive-logo">
             <h1 class="game-title">Seamless Dash</h1>
-            <p class="powered-text">POWERED BY</p>
-            <img src="NEW Seamex logo.png" alt="Seamex" class="responsive-logo" onerror="this.style.display='none'">
-            
-            <div id="input-container">
-                <div class="input-group">
-                    <input type="text" id="inp-name" placeholder="Enter Name (Letters Only)" autocomplete="off">
-                    <small id="err-name" class="val-err">Name must be letters only (Min 3)</small>
-                </div>
-                <div class="input-group">
-                    <input type="tel" id="inp-id" placeholder="Poornata ID (Numbers Only)" maxlength="10">
-                    <small id="err-id" class="val-err">ID must be numbers only (Min 4)</small>
-                </div>
-                <button id="btn-start" class="main-btn" disabled>START DASHING 🚀</button>
+            <p class="powered-text">POWERED BY SEAMEX</p>
+            <div class="input-group">
+                <input type="text" id="inp-name" placeholder="Name" autocomplete="off">
+                <div id="err-name" class="val-err">Invalid Name</div>
             </div>
-
-            <div class="how-to">
-                <div class="how-row"><span>👆</span> Drag to move</div>
-                <div class="how-row"><span>🔴</span> Dodge Red Orbs</div>
-                <div class="how-row"><span>🔵</span> Shield (Invincible 8s)</div>
-                <div class="how-row"><span>⏳</span> Time Warp (Slow Motion)</div>
+            <div class="input-group">
+                <input type="tel" id="inp-id" placeholder="Poornata ID" maxlength="10">
+                <div id="err-id" class="val-err">Invalid Poornata ID</div>
             </div>
+            <button id="btn-start" class="main-btn" disabled>START DASHING</button>
         </div>
 
-        <div id="game-over-screen" class="screen-box hidden">
-            <h1 class="game-title">DASH OVER!</h1>
-            
-            <div class="score-grid">
-                <div class="stat-box">
-                    <div class="stat-label">Your Score</div>
-                    <div id="final-score" class="stat-val">0</div>
-                </div>
-                <div class="stat-box">
-                    <div class="stat-label">Best Score</div>
-                    <div id="best-score" class="stat-val">0</div>
-                </div>
-            </div>
-
-            <button id="btn-share" class="main-btn">CHALLENGE PEERS 🏆</button>
-            <button id="btn-restart" class="secondary-btn">PLAY AGAIN 🔄</button>
+        <div id="pause-screen" class="screen-box">
+            <h1 class="game-title">Paused</h1>
+            <div id="pause-trivia" class="trivia-box"></div>
+            <button id="btn-resume" class="main-btn">RESUME GAME</button>
+            <button id="btn-quit" class="secondary-btn">MAIN MENU</button>
         </div>
 
-        <div id="ui-footer">
-            <button id="btn-sound" class="mute-btn">🔊 Sound On</button>
+        <div id="game-over-screen" class="screen-box">
+            <h1 class="game-title">Dash Over</h1>
+            <div id="death-trivia" class="trivia-box"></div>
+            <div class="leaderboard" id="leaderboard-ui">
+                <div style="font-weight:900; margin-bottom:5px;">TOP DASHERS</div>
+                <div id="lb-list"></div>
+            </div>
+            <button id="btn-restart" class="main-btn">PLAY AGAIN</button>
+            <button id="btn-share" class="secondary-btn">CHALLENGE FRIENDS</button>
         </div>
     </div>
 
     <div id="game-hud">
         <div class="hud-top">
-            <div class="stat-pill">👤 <span id="hud-name">Player</span></div>
+            <div class="stat-pill">👤 <span id="hud-name">User</span></div>
             <div class="stat-pill">⭐ <span id="hud-score">0</span></div>
             <button id="btn-pause" class="pause-btn">||</button>
         </div>
@@ -179,409 +116,239 @@
     <canvas id="gameCanvas"></canvas>
 
 <script>
-/**
- * SEAMLESS DASH - OPTIMIZED MOBILE ENGINE
- * Single File Architecture
- */
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d', { alpha: false });
+    let W, H, animId;
 
-// --- 1. CONFIG & STATE ---
-const C = {
-    gravity: 0, // Top down, no gravity
-    baseSpeed: 5,
-    spawnRate: 0.02,
-    powerupRate: 0.002
-};
+    const TRIVIA = [
+        "Poornata streamlines HR tasks for everyone.",
+        "Did you know? Seamex supports 24/7 digital HR.",
+        "Seamless Dash is built for mobile agility.",
+        "Keep your profile updated on Poornata for accuracy.",
+        "Seamex enables the future of Aditya Birla Group.",
+        "A Gold Shield makes you invincible for 8 seconds.",
+        "Time Warp slows the world, but your score keeps rising."
+    ];
 
-let state = {
-    running: false,
-    paused: false,
-    score: 0,
-    level: 1,
-    speed: C.baseSpeed,
-    timeWarp: false,
-    shield: 0, // Shield timer
-    frame: 0
-};
+    const BG_COLORS = ['#f0f2f5', '#e3f2fd', '#fff3e0', '#f3e5f5', '#e8f5e9'];
 
-let entities = {
-    player: { x: 0, y: 0, r: 35, targetX: 0, targetY: 0 },
-    enemies: [],
-    items: [], // {x, y, type: 'shield'|'warp', r: 20}
-    particles: []
-};
-
-// Trivia Database
-const TRIVIA = [
-    "Poornata centralizes all HR data securely.",
-    "Seamex ensures 99.9% payroll accuracy.",
-    "Did you know? You can view payslips on the go.",
-    "Time Warp unlocked! Everything moves slower.",
-    "Shield Active! You are invincible.",
-    "Seamex: Powered by Aditya Birla Group."
-];
-
-// --- 2. SETUP & ASSETS ---
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d', { alpha: false }); // Optimize for performance
-let W, H;
-let animId; // To control the loop
-
-const assets = {
-    player: document.getElementById('img-player'),
-    sounds: {
-        bg: new Audio("https://cdn.jsdelivr.net/gh/joshua19881228/free-music-files@master/super-mario-bros-theme.mp3"),
-        coin: new Audio("https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3"), // Level Up
-        die: new Audio("https://assets.mixkit.co/active_storage/sfx/2018/2018-preview.mp3"),
-        powerup: new Audio("https://assets.mixkit.co/active_storage/sfx/1103/1103-preview.mp3")
-    }
-};
-
-// Audio Config
-assets.sounds.bg.loop = true;
-assets.sounds.bg.volume = 0.3;
-let soundEnabled = true;
-
-// Resize Handler
-function resize() {
-    W = canvas.width = window.innerWidth;
-    H = canvas.height = window.innerHeight;
-    // Reset player position if game not running
-    if (!state.running) {
-        entities.player.x = W / 2;
-        entities.player.y = H * 0.7;
-        entities.player.targetX = W / 2;
-        entities.player.targetY = H * 0.7;
-    }
-}
-window.addEventListener('resize', resize);
-resize();
-
-// --- 3. INPUT HANDLING ---
-const inputs = {
-    name: document.getElementById('inp-name'),
-    id: document.getElementById('inp-id'),
-    startBtn: document.getElementById('btn-start')
-};
-
-function validate() {
-    const nameValid = /^[A-Za-z ]{3,}$/.test(inputs.name.value.trim());
-    const idValid = /^[0-9]{4,10}$/.test(inputs.id.value.trim());
-    
-    document.getElementById('err-name').style.visibility = nameValid ? 'hidden' : 'visible';
-    document.getElementById('err-id').style.visibility = idValid ? 'hidden' : 'visible';
-    
-    inputs.startBtn.disabled = !(nameValid && idValid);
-    return nameValid && idValid;
-}
-
-inputs.name.addEventListener('input', validate);
-inputs.id.addEventListener('input', validate);
-
-// Touch Controls
-canvas.addEventListener('touchstart', handleInput, {passive: false});
-canvas.addEventListener('touchmove', handleInput, {passive: false});
-canvas.addEventListener('mousemove', (e) => {
-    if(e.buttons === 1) handleInput(e);
-});
-
-function handleInput(e) {
-    e.preventDefault();
-    if (!state.running || state.paused) return;
-    
-    // Unlock Audio Context on first touch
-    if(assets.sounds.bg.paused && soundEnabled) assets.sounds.bg.play().catch(()=>{});
-
-    const touch = e.touches ? e.touches[0] : e;
-    entities.player.targetX = touch.clientX;
-    entities.player.targetY = touch.clientY - 50; // Offset so finger doesn't hide char
-}
-
-// --- 4. GAME LOGIC ---
-
-function startGame() {
-    if (!validate()) return;
-    
-    // Save User
-    const user = { name: inputs.name.value, id: inputs.id.value };
-    localStorage.setItem('seamex_user', JSON.stringify(user));
-    
-    // Reset State
-    state = {
-        running: true,
-        paused: false,
-        score: 0,
-        level: 1,
-        speed: C.baseSpeed,
-        timeWarp: false,
-        shield: 0,
-        frame: 0
+    let state = {
+        running: false, paused: false,
+        score: 0, level: 1, speed: 4.5,
+        timeWarp: false, shield: 0, frame: 0,
+        currentUser: null
     };
-    
-    entities.enemies = [];
-    entities.items = [];
-    entities.particles = [];
-    entities.player.x = W/2;
-    entities.player.y = H*0.7;
-    entities.player.targetX = W/2;
-    entities.player.targetY = H*0.7;
 
-    // UI Update
-    document.body.className = 'state-playing';
-    document.getElementById('hud-name').textContent = user.name;
-    document.getElementById('toast-container').innerHTML = ''; // Clear toasts
-    
-    // Audio
-    if(soundEnabled) {
-        assets.sounds.bg.currentTime = 0;
-        assets.sounds.bg.play().catch(()=>{});
-    }
+    let entities = { player: { x:0, y:0, r:35, tx:0, ty:0 }, enemies: [], items: [] };
 
-    // Start Loop
-    if(animId) cancelAnimationFrame(animId);
-    loop();
-}
-
-function endGame() {
-    state.running = false;
-    document.body.className = 'state-gameover';
-    
-    // Audio
-    if(soundEnabled) {
-        assets.sounds.bg.pause();
-        assets.sounds.die.play();
-    }
-    
-    // High Score Logic
-    const currentBest = parseInt(localStorage.getItem('seamex_best') || 0);
-    if(state.score > currentBest) {
-        localStorage.setItem('seamex_best', state.score);
-    }
-    
-    document.getElementById('final-score').textContent = Math.floor(state.score);
-    document.getElementById('best-score').textContent = Math.max(state.score, currentBest);
-}
-
-function spawnEntity() {
-    // Difficulty Scaling
-    const difficultyMod = 1 + (state.level * 0.1);
-    
-    // Spawn Enemy
-    if (Math.random() < C.spawnRate * difficultyMod) {
-        entities.enemies.push({
-            x: Math.random() * W,
-            y: -50,
-            r: 15 + Math.random() * 10,
-            speed: (Math.random() * 2 + 2) * difficultyMod,
-            color: '#A01018'
-        });
-    }
-
-    // Spawn Powerup (Rare)
-    if (Math.random() < C.powerupRate) {
-        const type = Math.random() > 0.5 ? 'shield' : 'warp';
-        entities.items.push({
-            x: Math.random() * W,
-            y: -50,
-            r: 20,
-            type: type
-        });
-    }
-}
-
-function showToast(msg, icon='ℹ️') {
-    const container = document.getElementById('toast-container');
-    const el = document.createElement('div');
-    el.className = 'toast';
-    el.innerHTML = `<span class="toast-icon">${icon}</span><span class="toast-text">${msg}</span>`;
-    container.appendChild(el);
-    // Remove after 3s
-    setTimeout(() => {
-        el.style.animation = 'fadeOut 0.5s forwards';
-        setTimeout(() => el.remove(), 500);
-    }, 3000);
-}
-
-// --- 5. THE LOOP ---
-
-function update() {
-    if (state.paused) return;
-
-    // Movement (Lerp for smoothness)
-    entities.player.x += (entities.player.targetX - entities.player.x) * 0.15;
-    entities.player.y += (entities.player.targetY - entities.player.y) * 0.15;
-
-    // Time Warp Factor
-    const timeScale = state.timeWarp ? 0.4 : 1.0;
-    document.body.classList.toggle('warp-active', state.timeWarp);
-
-    // Timers
-    if (state.shield > 0) state.shield--;
-    if (state.timeWarp && Math.random() < 0.005) state.timeWarp = false; // Randomly ends
-
-    // Score & Level
-    state.score += 0.1;
-    document.getElementById('hud-score').textContent = Math.floor(state.score);
-    
-    if (Math.floor(state.score) % 100 === 0 && Math.floor(state.score) > 0 && state.frame % 60 === 0) {
-        state.level++;
-        if(soundEnabled) assets.sounds.coin.play();
-        showToast(TRIVIA[state.level % TRIVIA.length] || "Keep Dashing!", "🎓");
-    }
-
-    // Update Enemies
-    for (let i = entities.enemies.length - 1; i >= 0; i--) {
-        let e = entities.enemies[i];
-        e.y += (state.speed + e.speed) * timeScale;
-        e.r += 0.05; // Pulse effect
-
-        // Collision Enemy
-        const dx = entities.player.x - e.x;
-        const dy = entities.player.y - e.y;
-        const dist = Math.sqrt(dx*dx + dy*dy);
-        
-        if (dist < entities.player.r + e.r - 10) {
-            if (state.shield > 0) {
-                // Shield destroys enemy
-                entities.enemies.splice(i, 1);
-            } else {
-                endGame();
-                return;
-            }
+    const assets = {
+        player: document.getElementById('img-player'),
+        bgMusic: new Audio("https://cdn.jsdelivr.net/gh/joshua19881228/free-music-files@master/super-mario-bros-theme.mp3"),
+        sfx: {
+            lvl: new Audio("https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3"),
+            die: new Audio("https://assets.mixkit.co/active_storage/sfx/2018/2018-preview.mp3"),
+            shield: new Audio("https://assets.mixkit.co/active_storage/sfx/1103/1103-preview.mp3"),
+            warp: new Audio("https://assets.mixkit.co/active_storage/sfx/600/600-preview.mp3")
         }
+    };
+    assets.bgMusic.loop = true; assets.bgMusic.volume = 0.25;
+
+    function resize() {
+        W = canvas.width = window.innerWidth;
+        H = canvas.height = window.innerHeight;
+        if(!state.running) { entities.player.x = entities.player.tx = W/2; entities.player.y = entities.player.ty = H*0.75; }
+    }
+    window.onresize = resize; resize();
+
+    // Validation
+    const nameIn = document.getElementById('inp-name');
+    const idIn = document.getElementById('inp-id');
+    const startBtn = document.getElementById('btn-start');
+
+    function validate() {
+        const nv = /^[A-Za-z ]{3,}$/.test(nameIn.value.trim());
+        const iv = /^[0-9]{4,10}$/.test(idIn.value.trim());
+        document.getElementById('err-name').style.visibility = nv ? 'hidden' : 'visible';
+        document.getElementById('err-id').style.visibility = iv ? 'hidden' : 'visible';
+        startBtn.disabled = !(nv && iv);
+    }
+    nameIn.oninput = idIn.oninput = validate;
+
+    function startGame() {
+        if(startBtn.disabled) return;
+        state.currentUser = { name: nameIn.value.trim(), id: idIn.value.trim() };
+        localStorage.setItem('seamex_last_user', JSON.stringify(state.currentUser));
         
-        if (e.y > H + 50) entities.enemies.splice(i, 1);
+        state.running = true; state.paused = false; state.score = 0; state.level = 1;
+        state.speed = 4.5; state.shield = 0; state.timeWarp = false;
+        entities.enemies = []; entities.items = [];
+        
+        document.body.className = 'state-playing';
+        document.getElementById('hud-name').textContent = state.currentUser.name;
+        assets.bgMusic.play().catch(()=>{});
+        loop();
     }
 
-    // Update Items
-    for (let i = entities.items.length - 1; i >= 0; i--) {
-        let item = entities.items[i];
-        item.y += state.speed * timeScale;
+    function endGame() {
+        state.running = false;
+        assets.bgMusic.pause();
+        assets.sfx.die.play();
         
-        // Collision Item
-        const dx = entities.player.x - item.x;
-        const dy = entities.player.y - item.y;
-        if (Math.sqrt(dx*dx + dy*dy) < entities.player.r + item.r) {
-            if(soundEnabled) assets.sounds.powerup.play();
-            if (item.type === 'shield') {
-                state.shield = 400; // ~6-7 seconds
-                showToast("Shield Activated!", "🛡️");
-            } else {
-                state.timeWarp = true;
-                showToast("Time Warp!", "⏳");
-            }
-            entities.items.splice(i, 1);
+        // Save to Leaderboard
+        let lb = JSON.parse(localStorage.getItem('seamex_lb') || '[]');
+        lb.push({ name: state.currentUser.name, score: Math.floor(state.score) });
+        lb.sort((a,b) => b.score - a.score);
+        lb = lb.slice(0, 5);
+        localStorage.setItem('seamex_lb', JSON.stringify(lb));
+
+        // Render LB
+        const list = document.getElementById('lb-list');
+        list.innerHTML = lb.map((u, i) => `<div class="lb-row"><span><span class="lb-rank">#${i+1}</span> ${u.name}</span><b>${u.score}</b></div>`).join('');
+        
+        document.getElementById('death-trivia').textContent = TRIVIA[Math.floor(Math.random()*TRIVIA.length)];
+        document.body.className = 'state-gameover';
+    }
+
+    // Input Logic
+    const handleTouch = (e) => {
+        if(!state.running || state.paused) return;
+        const t = e.touches ? e.touches[0] : e;
+        entities.player.tx = t.clientX;
+        entities.player.ty = t.clientY - 60; // Ergonomic offset
+    };
+    canvas.addEventListener('touchstart', handleTouch);
+    canvas.addEventListener('touchmove', handleTouch);
+
+    function spawn() {
+        // Progressive difficulty increase
+        const levelMod = Math.min(state.level, 10);
+        const rate = 0.015 + (levelMod * 0.005);
+        
+        if(Math.random() < rate) {
+            entities.enemies.push({
+                x: Math.random() * W, y: -40,
+                r: 12 + Math.random() * 15,
+                s: (2 + Math.random() * 2) * (1 + (levelMod * 0.05))
+            });
         }
-        
-        if (item.y > H + 50) entities.items.splice(i, 1);
+        if(Math.random() < 0.003) {
+            entities.items.push({ x: Math.random() * W, y: -40, type: Math.random() > 0.6 ? 'shield' : 'warp' });
+        }
     }
 
-    state.frame++;
-    spawnEntity();
-}
+    function update() {
+        if(state.paused) return;
+        state.frame++;
+        state.score += 0.15;
+        document.getElementById('hud-score').textContent = Math.floor(state.score);
 
-function draw() {
-    // Clear
-    ctx.fillStyle = '#f0f2f5'; // Clear color
-    ctx.fillRect(0, 0, W, H);
+        // Smooth color shift every 80 pts
+        const colorIdx = Math.floor(state.score / 80) % BG_COLORS.length;
+        document.body.style.setProperty('--bg-current', BG_COLORS[colorIdx]);
 
-    // Draw Player
-    ctx.save();
-    ctx.translate(entities.player.x, entities.player.y);
-    
-    // Shield Aura
-    if (state.shield > 0) {
-        ctx.beginPath();
-        ctx.arc(0, 0, 50, 0, Math.PI * 2);
-        ctx.strokeStyle = `rgba(9, 132, 227, ${Math.random()})`;
-        ctx.lineWidth = 4;
-        ctx.stroke();
+        // Difficulty Step
+        if(Math.floor(state.score) % 100 === 0 && state.frame % 60 === 0 && state.score > 0) {
+            state.level++;
+            if(state.level <= 10) state.speed += 0.3; // Speed cap
+            assets.sfx.lvl.play();
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.textContent = TRIVIA[state.level % TRIVIA.length];
+            document.getElementById('toast-container').appendChild(toast);
+            setTimeout(() => toast.remove(), 4000);
+        }
+
+        // Movement
+        entities.player.x += (entities.player.tx - entities.player.x) * 0.18;
+        entities.player.y += (entities.player.ty - entities.player.y) * 0.18;
+
+        const ts = state.timeWarp ? 0.45 : 1.0;
+        if(state.shield > 0) state.shield--;
+        if(state.timeWarp && Math.random() < 0.004) state.timeWarp = false;
+
+        // Entities Update
+        for(let i=entities.enemies.length-1; i>=0; i--) {
+            let e = entities.enemies[i];
+            e.y += (state.speed + e.s) * ts;
+            const dist = Math.hypot(entities.player.x - e.x, entities.player.y - e.y);
+            if(dist < entities.player.r + e.r - 8) {
+                if(state.shield > 0) entities.enemies.splice(i, 1);
+                else { endGame(); return; }
+            }
+            if(e.y > H + 50) entities.enemies.splice(i,1);
+        }
+
+        for(let i=entities.items.length-1; i>=0; i--) {
+            let it = entities.items[i];
+            it.y += state.speed * ts;
+            if(Math.hypot(entities.player.x - it.x, entities.player.y - it.y) < 45) {
+                if(it.type === 'shield') { state.shield = 480; assets.sfx.shield.play(); }
+                else { state.timeWarp = true; assets.sfx.warp.play(); }
+                entities.items.splice(i,1);
+            }
+            if(it.y > H + 50) entities.items.splice(i,1);
+        }
+        spawn();
     }
-    
-    // Character Image (or Fallback Circle)
-    if (assets.player && assets.player.complete && assets.player.naturalWidth !== 0) {
-        ctx.drawImage(assets.player, -40, -40, 80, 80);
-    } else {
-        ctx.fillStyle = '#333';
-        ctx.beginPath(); ctx.arc(0, 0, 30, 0, Math.PI*2); ctx.fill();
-    }
-    ctx.restore();
 
-    // Draw Enemies
-    entities.enemies.forEach(e => {
-        ctx.fillStyle = e.color;
-        ctx.beginPath();
-        ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2);
-        ctx.fill();
-        // Shine
-        ctx.fillStyle = 'rgba(255,255,255,0.3)';
-        ctx.beginPath(); ctx.arc(e.x - 5, e.y - 5, e.r/3, 0, Math.PI * 2); ctx.fill();
-    });
+    function draw() {
+        ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--bg-current');
+        ctx.fillRect(0,0,W,H);
 
-    // Draw Items
-    entities.items.forEach(item => {
+        // Player
         ctx.save();
-        ctx.translate(item.x, item.y);
-        if (item.type === 'shield') {
-            ctx.fillStyle = '#0984e3';
-            ctx.beginPath(); ctx.arc(0, 0, 15, 0, Math.PI*2); ctx.fill();
-            ctx.fillStyle = '#fff';
-            ctx.font = '20px Arial'; ctx.fillText('🛡️', -10, 6);
-        } else {
-            ctx.fillStyle = '#fdcb6e';
-            ctx.beginPath(); ctx.rect(-15, -15, 30, 30); ctx.fill();
-            ctx.fillStyle = '#fff';
-            ctx.font = '20px Arial'; ctx.fillText('⏳', -10, 6);
+        ctx.translate(entities.player.x, entities.player.y);
+        if(state.shield > 0) {
+            ctx.beginPath(); ctx.arc(0,0, 45 + Math.sin(state.frame*0.1)*5, 0, Math.PI*2);
+            ctx.strokeStyle = '#0984e3'; ctx.lineWidth = 3; ctx.stroke();
         }
+        if(assets.player.complete) ctx.drawImage(assets.player, -35, -35, 70, 70);
+        else { ctx.fillStyle = '#A01018'; ctx.beginPath(); ctx.arc(0,0,30,0,Math.PI*2); ctx.fill(); }
         ctx.restore();
-    });
-}
 
-function loop() {
-    if (state.running) {
+        // Enemies
+        entities.enemies.forEach(e => {
+            ctx.fillStyle = '#A01018';
+            ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = 'rgba(255,255,255,0.2)';
+            ctx.beginPath(); ctx.arc(e.x - e.r/3, e.y - e.r/3, e.r/3, 0, Math.PI*2); ctx.fill();
+        });
+
+        // Items
+        entities.items.forEach(it => {
+            ctx.font = "24px Arial";
+            ctx.fillText(it.type === 'shield' ? "🛡️" : "⏳", it.x - 12, it.y + 10);
+        });
+    }
+
+    function loop() {
+        if(!state.running) return;
         update();
         draw();
         animId = requestAnimationFrame(loop);
     }
-}
 
-// --- 6. UI BINDINGS ---
-inputs.startBtn.onclick = startGame;
+    // UI Listeners
+    startBtn.onclick = startGame;
+    document.getElementById('btn-pause').onclick = () => {
+        state.paused = true;
+        document.getElementById('pause-trivia').textContent = TRIVIA[Math.floor(Math.random()*TRIVIA.length)];
+        document.body.className = 'state-paused';
+    };
+    document.getElementById('btn-resume').onclick = () => {
+        state.paused = false;
+        document.body.className = 'state-playing';
+    };
+    document.getElementById('btn-quit').onclick = () => location.reload();
+    document.getElementById('btn-restart').onclick = startGame;
+    document.getElementById('btn-share').onclick = () => {
+        const msg = `I dashed ${Math.floor(state.score)} pts on Seamex Dash! Can you beat me?`;
+        if(navigator.share) navigator.share({ text: msg }); else alert(msg);
+    };
 
-document.getElementById('btn-restart').onclick = () => {
-    // Reset inputs visually or keep them? Keeping them for flow
-    startGame();
-};
-
-document.getElementById('btn-share').onclick = () => {
-    const text = `I scored ${Math.floor(state.score)} on Seamless Dash! Can you beat me? Powered by Seamex.`;
-    if (navigator.share) {
-        navigator.share({ title: 'Seamless Dash', text: text, url: window.location.href });
-    } else {
-        prompt("Copy this to share:", text);
-    }
-};
-
-const pauseBtn = document.getElementById('btn-pause');
-pauseBtn.onclick = () => {
-    state.paused = !state.paused;
-    pauseBtn.textContent = state.paused ? "▶" : "||";
-};
-
-const soundBtn = document.getElementById('btn-sound');
-soundBtn.onclick = () => {
-    soundEnabled = !soundEnabled;
-    soundBtn.textContent = soundEnabled ? "🔊 Sound On" : "🔇 Sound Off";
-    if(!soundEnabled) assets.sounds.bg.pause();
-    else if(state.running) assets.sounds.bg.play().catch(()=>{});
-};
-
-// Auto-Load previous user
-const savedUser = JSON.parse(localStorage.getItem('seamex_user'));
-if(savedUser) {
-    inputs.name.value = savedUser.name;
-    inputs.id.value = savedUser.id;
-    validate(); // Enable button
-}
+    // Auto-fill
+    const last = JSON.parse(localStorage.getItem('seamex_last_user'));
+    if(last) { nameIn.value = last.name; idIn.value = last.id; validate(); }
 
 </script>
 </body>
